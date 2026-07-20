@@ -111,25 +111,17 @@ struct MascotView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Mascot on a white sticker-style card (the PNG has a white background)
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white)
-                    .frame(width: 88, height: 88)
-                    .shadow(color: .black.opacity(0.14), radius: 10, x: 0, y: 5)
-
-                Image("mascot")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 82, height: 82)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-            }
-            // Gentle idle float — 4 pt vertical travel, 3.4 s period
-            .offset(y: floating ? -4 : 0)
-            .animation(
-                .easeInOut(duration: 3.4).repeatForever(autoreverses: true),
-                value: floating
-            )
+            // Mascot — transparent PNG sits directly on the dark background
+            Image("mascot")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 88, height: 88)
+                // Gentle idle float — 4 pt vertical travel, 3.4 s period
+                .offset(y: floating ? -4 : 0)
+                .animation(
+                    .easeInOut(duration: 3.4).repeatForever(autoreverses: true),
+                    value: floating
+                )
 
             // Floating heart — independent pulse + small vertical drift
             Text("❤️")
