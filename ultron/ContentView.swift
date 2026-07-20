@@ -9,9 +9,6 @@ struct RootView: View {
             case .launch:
                 LaunchView()
                     .transition(.opacity)
-            case .landing:
-                LandingView()
-                    .transition(.opacity)
             case .onboarding:
                 OnboardingContainerView()
                     .transition(.asymmetric(

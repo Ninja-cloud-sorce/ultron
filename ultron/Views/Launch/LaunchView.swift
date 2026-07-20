@@ -47,7 +47,7 @@ struct LaunchView: View {
             pulse = true
             withAnimation(.easeIn(duration: 0.6)) { opacity = 1 }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                appVM.advance(to: .landing)
+                appVM.advance(to: .onboarding)
             }
         }
     }

@@ -3,7 +3,6 @@ import Combine
 
 enum AppState {
     case launch
-    case landing
     case onboarding
     case home
 }
