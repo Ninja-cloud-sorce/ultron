@@ -105,42 +105,53 @@ struct HomeScreenView: View {
 
 // MARK: - Mascot
 struct MascotView: View {
-    @State private var floating = false
-    @State private var heartPulse = false
-    @State private var heartFloat = false
+    @State private var scale: CGFloat = 0.3
+    @State private var opacity: Double = 0
+    @State private var yOffset: CGFloat = 24
+    @State private var rotation: Double = 0
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Mascot — transparent PNG sits directly on the dark background
-            Image("mascot")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 88, height: 88)
-                // Gentle idle float — 4 pt vertical travel, 3.4 s period
-                .offset(y: floating ? -4 : 0)
-                .animation(
-                    .easeInOut(duration: 3.4).repeatForever(autoreverses: true),
-                    value: floating
-                )
+        Image("mascot")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 130, height: 130)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .offset(y: yOffset)
+            .rotationEffect(.degrees(rotation), anchor: .bottom)
+            .onAppear { playGreeting() }
+    }
 
-            // Floating heart — independent pulse + small vertical drift
-            Text("❤️")
-                .font(.system(size: 14))
-                .scaleEffect(heartPulse ? 1.22 : 0.88)
-                .offset(x: 8, y: heartFloat ? -14 : -10)
-                .animation(
-                    .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
-                    value: heartPulse
-                )
-                .animation(
-                    .easeInOut(duration: 2.8).repeatForever(autoreverses: true),
-                    value: heartFloat
-                )
+    private func playGreeting() {
+        // 1 — Pop in: scale + fade + rise
+        withAnimation(.spring(response: 0.52, dampingFraction: 0.62)) {
+            scale   = 1.08
+            opacity = 1.0
+            yOffset = 0
         }
-        .onAppear {
-            floating    = true
-            heartPulse  = true
-            heartFloat  = true
+        // 2 — Settle scale overshoot
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                scale = 1.0
+            }
+        }
+        // 3 — Wave: tilt left
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.easeInOut(duration: 0.13)) { rotation = -16 }
+        }
+        // 4 — Wave: tilt right
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.63) {
+            withAnimation(.easeInOut(duration: 0.13)) { rotation = 14 }
+        }
+        // 5 — Wave: tilt left (smaller)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.76) {
+            withAnimation(.easeInOut(duration: 0.11)) { rotation = -8 }
+        }
+        // 6 — Settle upright — done, no further animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.87) {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                rotation = 0
+            }
         }
     }
 }
