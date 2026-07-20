@@ -105,6 +105,9 @@ struct HomeScreenView: View {
 
 // MARK: - Mascot
 struct MascotView: View {
+    // Static: survives tab switches (session-scoped), resets when app is killed
+    private static var greetingPlayed = false
+
     @State private var scale: CGFloat = 0.3
     @State private var opacity: Double = 0
     @State private var yOffset: CGFloat = 24
@@ -119,7 +122,18 @@ struct MascotView: View {
             .opacity(opacity)
             .offset(y: yOffset)
             .rotationEffect(.degrees(rotation), anchor: .bottom)
-            .onAppear { playGreeting() }
+            .onAppear {
+                if MascotView.greetingPlayed {
+                    // Already waved this session — appear instantly, no animation
+                    scale   = 1.0
+                    opacity = 1.0
+                    yOffset = 0
+                    rotation = 0
+                } else {
+                    MascotView.greetingPlayed = true
+                    playGreeting()
+                }
+            }
     }
 
     private func playGreeting() {
