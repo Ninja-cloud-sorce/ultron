@@ -1,17 +1,14 @@
-//
-//  ultronApp.swift
-//  ultron
-//
-//  Created by praful on 7/21/26.
-//
-
 import SwiftUI
 
 @main
 struct ultronApp: App {
+    @StateObject private var appVM = AppViewModel()
+
     var body: some Scene {
-        DocumentGroup(newDocument: ultronDocument()) { file in
-            ContentView(document: file.$document)
+        WindowGroup {
+            RootView()
+                .environmentObject(appVM)
+                .preferredColorScheme(.dark)
         }
     }
 }

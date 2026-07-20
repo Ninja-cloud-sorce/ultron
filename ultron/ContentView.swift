@@ -1,20 +1,28 @@
-//
-//  ContentView.swift
-//  ultron
-//
-//  Created by praful on 7/21/26.
-//
-
 import SwiftUI
 
-struct ContentView: View {
-    @Binding var document: ultronDocument
+struct RootView: View {
+    @EnvironmentObject var appVM: AppViewModel
 
     var body: some View {
-        TextEditor(text: $document.text)
+        ZStack {
+            switch appVM.appState {
+            case .launch:
+                LaunchView()
+                    .transition(.opacity)
+            case .landing:
+                LandingView()
+                    .transition(.opacity)
+            case .onboarding:
+                OnboardingContainerView()
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+            case .home:
+                HomeView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.5), value: appVM.appState)
     }
-}
-
-#Preview {
-    ContentView(document: .constant(ultronDocument()))
 }
