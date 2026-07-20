@@ -43,14 +43,7 @@ struct HomeScreenView: View {
 
                         Spacer()
 
-                        // Mascot bear with floating heart
-                        ZStack(alignment: .topTrailing) {
-                            BearMascotView()
-
-                            Text("❤️")
-                                .font(.system(size: 14))
-                                .offset(x: 6, y: -6)
-                        }
+                        MascotView()
                     }
                     .padding(.horizontal, AppTheme.Spacing.m)
                     .padding(.top, 60)
@@ -110,23 +103,52 @@ struct HomeScreenView: View {
     }
 }
 
-// MARK: - Bear Mascot
-struct BearMascotView: View {
-    var body: some View {
-        // Crop lan2 image to focus on the bear character (lower-center of the image)
-        ZStack {
-            Circle()
-                .fill(AppTheme.Colors.bgElevated)
-                .frame(width: 76, height: 76)
-                .overlay(Circle().stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
+// MARK: - Mascot
+struct MascotView: View {
+    @State private var floating = false
+    @State private var heartPulse = false
+    @State private var heartFloat = false
 
-            Image("lan2")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 150, height: 150)
-                .offset(x: 0, y: 35)   // shift down to center on the bear character
-                .frame(width: 68, height: 68)
-                .clipShape(Circle())
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            // Mascot on a white sticker-style card (the PNG has a white background)
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.white)
+                    .frame(width: 88, height: 88)
+                    .shadow(color: .black.opacity(0.14), radius: 10, x: 0, y: 5)
+
+                Image("mascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 82, height: 82)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+            }
+            // Gentle idle float — 4 pt vertical travel, 3.4 s period
+            .offset(y: floating ? -4 : 0)
+            .animation(
+                .easeInOut(duration: 3.4).repeatForever(autoreverses: true),
+                value: floating
+            )
+
+            // Floating heart — independent pulse + small vertical drift
+            Text("❤️")
+                .font(.system(size: 14))
+                .scaleEffect(heartPulse ? 1.22 : 0.88)
+                .offset(x: 8, y: heartFloat ? -14 : -10)
+                .animation(
+                    .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
+                    value: heartPulse
+                )
+                .animation(
+                    .easeInOut(duration: 2.8).repeatForever(autoreverses: true),
+                    value: heartFloat
+                )
+        }
+        .onAppear {
+            floating    = true
+            heartPulse  = true
+            heartFloat  = true
         }
     }
 }
