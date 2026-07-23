@@ -2,93 +2,134 @@ import SwiftUI
 
 struct CompassMonumentView: View {
     @Environment(\.dismiss) private var dismiss
-    let milestones = Milestone.samples
-    @State private var glowPulse = false
+    @StateObject private var vm = GuidanceViewModel()
 
-    var unlockedCount: Int { milestones.filter { $0.isUnlocked }.count }
+    @State private var isLighthouseActive = false
+    @State private var showBeamDown       = false
+    @State private var showGuidanceArea   = false
+    @State private var latestAnalysis: DirectionAnalysis? = nil
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             AppTheme.Colors.bgPrimary.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Hero
-                    ZStack(alignment: .bottom) {
-                        Image("Compass Monument")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(height: 360)
-                            .clipped()
-                            .overlay(
-                                LinearGradient(
-                                    colors: [.clear, .clear, AppTheme.Colors.bgPrimary],
-                                    startPoint: .top, endPoint: .bottom
-                                )
-                            )
+                VStack(alignment: .leading, spacing: 0) {
 
-                        // Glow at top of monument
-                        Circle()
-                            .fill(AppTheme.Colors.accentGold.opacity(glowPulse ? 0.4 : 0.1))
-                            .frame(width: 80, height: 80)
-                            .blur(radius: 20)
-                            .offset(y: -120)
-                            .animation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true), value: glowPulse)
-
-                        VStack(spacing: AppTheme.Spacing.s) {
-                            Text("Compass Monument")
-                                .font(.system(size: 26, weight: .bold, design: .serif))
-                                .foregroundColor(AppTheme.Colors.textPrimary)
-                            Text("\(unlockedCount) of \(milestones.count) milestones reached")
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.Colors.textSecondary)
-                        }
-                        .padding(.bottom, AppTheme.Spacing.xl)
+                    // ── Lighthouse hero (tap to activate) ─────────────────
+                    LighthouseHero(isActive: isLighthouseActive) {
+                        activateLighthouse()
                     }
-                    .frame(height: 360)
 
-                    // Progress ring summary
-                    HStack(spacing: AppTheme.Spacing.m) {
-                        StatCard(icon: "star.fill",    value: "\(unlockedCount)/\(milestones.count)", label: "Milestones",  accentColor: AppTheme.Colors.accentGold)
-                        StatCard(icon: "book.fill",    value: "24",                                   label: "Entries",     accentColor: AppTheme.Colors.accentTeal)
-                        StatCard(icon: "flame.fill",   value: "7",                                    label: "Day Streak",  accentColor: AppTheme.Colors.accentRose)
+                    // ── Alignment pill ─────────────────────────────────────
+                    if let analysis = latestAnalysis {
+                        NorthStarAlignmentPill(analysis: analysis)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 20)
+                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     }
-                    .padding(.horizontal, AppTheme.Spacing.m)
-                    .padding(.top, AppTheme.Spacing.l)
 
-                    // Milestones list
-                    VStack(spacing: AppTheme.Spacing.m) {
-                        SectionHeader(title: "Your Milestones", actionLabel: nil)
-                            .padding(.top, AppTheme.Spacing.l)
-                        ForEach(milestones) { milestone in
-                            MilestoneCard(milestone: milestone)
-                        }
+                    // ── Beam shoots down from peak while loading ───────────
+                    if showBeamDown {
+                        BeamDownEffect()
+                            .transition(.opacity)
                     }
-                    .padding(.horizontal, AppTheme.Spacing.m)
-                    .padding(.bottom, 40)
+
+                    // ── Guidance text reveals inline ───────────────────────
+                    if showGuidanceArea, let guidance = vm.guidance {
+                        GuidanceRevealView(guidance: guidance, onReset: resetAll)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 14)
+                            .padding(.bottom, 16)
+                            .transition(.opacity)
+                    } else if !isLighthouseActive && !showBeamDown {
+                        idleHint
+                    }
+
+                    Spacer(minLength: 120)
                 }
             }
+            .ignoresSafeArea(edges: .top)
 
-            // Back button
-            VStack {
-                HStack {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(AppTheme.Colors.textPrimary)
-                            .padding(12)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
-                    }
-                    .padding(.leading, AppTheme.Spacing.m)
-                    .padding(.top, 56)
-                    Spacer()
+            // ── Back button ────────────────────────────────────────────────
+            HStack {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
                 }
+                .padding(.leading, AppTheme.Spacing.m)
+                .padding(.top, 56)
                 Spacer()
             }
         }
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea(edges: .bottom)
         .hideNavigationBar()
-        .onAppear { glowPulse = true }
+        .onAppear {
+            latestAnalysis = JournalAnalysisRepository.shared.mostRecent()
+        }
+    }
+
+    // MARK: - Idle hint
+
+    private var idleHint: some View {
+        VStack(spacing: AppTheme.Spacing.m) {
+            Text("Your guiding light")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+            Text("Tap the monument above to receive today's personalised guidance.")
+                .font(.system(size: 14))
+                .foregroundColor(Color.white.opacity(0.45))
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+        }
+        .padding(.horizontal, 32)
+        .padding(.vertical, AppTheme.Spacing.xl)
+    }
+
+    // MARK: - Flow
+
+    private func activateLighthouse() {
+        guard !isLighthouseActive else { return }
+
+        withAnimation(.easeIn(duration: 0.4)) {
+            isLighthouseActive = true
+        }
+
+        Task {
+            // Beacon sweeps for a beat before the beam appears
+            try? await Task.sleep(nanoseconds: 800_000_000)
+
+            withAnimation(.easeIn(duration: 0.35)) {
+                showBeamDown = true
+            }
+
+            // Beam stays visible while guidance loads (1.6 s mock delay)
+            await vm.requestGuidance()
+
+            withAnimation(.easeOut(duration: 0.4)) {
+                showBeamDown = false
+            }
+
+            // Brief pause, then text starts materialising
+            try? await Task.sleep(nanoseconds: 280_000_000)
+
+            withAnimation(.easeIn(duration: 0.25)) {
+                showGuidanceArea = true
+            }
+        }
+    }
+
+    private func resetAll() {
+        withAnimation(.easeOut(duration: 0.3)) {
+            showGuidanceArea   = false
+            isLighthouseActive = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            vm.reset()
+        }
     }
 }

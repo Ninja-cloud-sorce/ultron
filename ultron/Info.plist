@@ -15,6 +15,10 @@
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER).exampledocument</string>
 		</dict>
 	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>Intent</string>
+	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -35,5 +39,11 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Compass uses the camera to capture journal pages and update your profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Compass accesses your photo library to let you set a profile photo.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Compass uses Face ID to protect your private journal entries.</string>
 </dict>
 </plist>

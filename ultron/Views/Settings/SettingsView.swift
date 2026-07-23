@@ -1,104 +1,354 @@
 import SwiftUI
 
+// MARK: - Navigation destinations
+
+enum SettingsDest: Hashable {
+    case appearance, journalPrefs, notifications, aiSettings, privacy, backup, about
+}
+
+// MARK: - Main Settings View
+
 struct SettingsView: View {
-    @State private var notificationsEnabled = true
-    @State private var dailyReminderTime = Date()
-    @State private var darkModeEnabled = true
-    @State private var hapticEnabled = true
-    @State private var showDeleteConfirm = false
+    @EnvironmentObject var appVM:     AppViewModel
+    @EnvironmentObject var journalVM: JournalViewModel
+    @EnvironmentObject var theme:     ThemeManager
+    @StateObject private var settings = SettingsManager.shared
+    @State private var showSignOut    = false
+    @State private var showProfile    = false
 
     var body: some View {
-        ZStack {
-            AppTheme.Colors.bgPrimary.ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: AppTheme.Spacing.xl) {
-                    // Header
-                    VStack(spacing: AppTheme.Spacing.s) {
-                        Text("Settings")
-                            .font(.system(size: 28, weight: .bold, design: .serif))
-                            .foregroundColor(AppTheme.Colors.textPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+        NavigationStack {
+            ZStack {
+                AppTheme.Colors.bgPrimary.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        settingsHeader
+                        profileCard
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 24)
+                        prefsSection
+                            .padding(.bottom, 24)
+                        moreSection
+                        Spacer(minLength: 120)
                     }
-                    .padding(.horizontal, AppTheme.Spacing.m)
-                    .padding(.top, 60)
+                }
+            }
+            .navigationDestination(for: SettingsDest.self) { dest in
+                switch dest {
+                case .appearance:    AppearanceView().environmentObject(theme)
+                case .journalPrefs:  JournalPreferencesView()
+                case .notifications: NotificationsView()
+                case .aiSettings:    AISettingsView()
+                case .privacy:       PrivacyView().environmentObject(journalVM).environmentObject(appVM)
+                case .backup:        BackupView().environmentObject(journalVM)
+                case .about:         AboutView()
+                }
+            }
+            .sheet(isPresented: $showProfile) {
+                ProfileEditView()
+            }
+            .alert("Sign Out", isPresented: $showSignOut) {
+                Button("Sign Out", role: .destructive) { appVM.signOut() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your journal data stays on this device. You can sign back in any time.")
+            }
+        }
+    }
 
-                    // Profile card
-                    HStack(spacing: AppTheme.Spacing.m) {
-                        ZStack {
-                            Circle()
-                                .fill(AppTheme.Colors.accentGold.opacity(0.2))
-                                .frame(width: 64, height: 64)
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(AppTheme.Colors.accentGold)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Wanderer")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(AppTheme.Colors.textPrimary)
-                            Text("Compass journaler since 2026")
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.Colors.textSecondary)
+    // MARK: - Header
+
+    private var settingsHeader: some View {
+        ZStack(alignment: .topTrailing) {
+            LinearGradient(
+                colors: [AppTheme.Colors.bgElevated.opacity(0.6), AppTheme.Colors.bgPrimary],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 130)
+
+            // Decorative compass rose
+            Image(systemName: "location.north.circle.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [AppTheme.Colors.accentGold.opacity(0.18), AppTheme.Colors.accentGold.opacity(0.04)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+                .offset(x: -16, y: 16)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Profile & Settings")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                Text("Manage your profile, preferences & app settings")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppTheme.Colors.textSecondary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 56)
+            .padding(.bottom, 20)
+        }
+    }
+
+    // MARK: - Profile Card
+
+    private var profileCard: some View {
+        Button { showProfile = true } label: {
+            VStack(spacing: 0) {
+                HStack(spacing: 16) {
+                    avatarView
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(settings.username)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                        Text(settings.userTitle)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppTheme.Colors.accentGold)
+                        Text(settings.journeyQuote)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.Colors.textSecondary)
+                            .lineLimit(2)
+                            .italic()
+                    }
+                    Spacer()
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(AppTheme.Colors.textTertiary)
+                }
+                .padding(20)
+
+                Divider()
+                    .background(AppTheme.Colors.borderSubtle)
+
+                statsRow
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 12)
+            }
+            .background(AppTheme.Colors.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AppTheme.Colors.borderSubtle, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var avatarView: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if let img = settings.avatarImage {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    ZStack {
+                        AppTheme.Colors.accentGold.opacity(0.2)
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 30))
+                            .foregroundStyle(AppTheme.Colors.accentGold)
+                    }
+                }
+            }
+            .frame(width: 68, height: 68)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(AppTheme.Colors.accentGold.opacity(0.4), lineWidth: 2))
+
+            ZStack {
+                Circle().fill(AppTheme.Colors.bgSurface).frame(width: 22, height: 22)
+                Image(systemName: "camera.fill").font(.system(size: 10)).foregroundStyle(AppTheme.Colors.textSecondary)
+            }
+        }
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 0) {
+            statCell(
+                value: "\(journalVM.currentStreak)",
+                label: "Day Streak",
+                color: AppTheme.Colors.accentGold
+            )
+            statDivider
+            statCell(
+                value: "\(journalVM.totalEntries)",
+                label: "Journals",
+                color: AppTheme.Colors.accentTeal
+            )
+            statDivider
+            statCell(
+                value: "\(journalVM.bookmarkedEntries.count)",
+                label: "Favorites",
+                color: AppTheme.Colors.accentRose
+            )
+            statDivider
+            statCell(
+                value: "\(JournalAnalysisRepository.shared.averageScore())%",
+                label: "Alignment",
+                color: Color(hex: "#9B8BE6")
+            )
+        }
+    }
+
+    private func statCell(value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(AppTheme.Colors.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var statDivider: some View {
+        Rectangle()
+            .fill(AppTheme.Colors.borderSubtle)
+            .frame(width: 1, height: 36)
+    }
+
+    // MARK: - Preferences section
+
+    private var prefsSection: some View {
+        VStack(spacing: 0) {
+            sectionLabel("PREFERENCES")
+            VStack(spacing: 0) {
+                prefsRow(icon: "book.fill",           bg: Color(hex: "#6DB382"), title: "Journal Preferences", sub: "Templates, goals, writing habits",  dest: .journalPrefs)
+                rowDivider
+                prefsRow(icon: "paintbrush.fill",     bg: Color(hex: "#9B8BE6"), title: "Appearance",          sub: "Themes, display & visual style",    dest: .appearance)
+                rowDivider
+                prefsRow(icon: "bell.fill",           bg: AppTheme.Colors.accentGold, title: "Notifications",  sub: "Daily reminders, streak alerts",   dest: .notifications)
+                rowDivider
+                prefsRow(icon: "sparkles",            bg: AppTheme.Colors.accentRose, title: "AI & Insights",  sub: "Summaries, mood, coach & search",  dest: .aiSettings)
+                rowDivider
+                prefsRow(icon: "lock.shield.fill",    bg: Color(hex: "#F4845F"), title: "Privacy & Security",  sub: "Face ID, data export, account",    dest: .privacy)
+                rowDivider
+                prefsRow(icon: "icloud.fill",         bg: AppTheme.Colors.accentTeal, title: "Backup & Sync",  sub: "Cloud backup & restore data",      dest: .backup)
+            }
+            .background(AppTheme.Colors.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func prefsRow(icon: String, bg: Color, title: String, sub: String, dest: SettingsDest) -> some View {
+        NavigationLink(value: dest) {
+            HStack(spacing: 14) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(bg.opacity(0.18))
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(bg)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                    Text(sub)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.Colors.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.Colors.textTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - More section
+
+    private var moreSection: some View {
+        VStack(spacing: 0) {
+            sectionLabel("MORE")
+            VStack(spacing: 0) {
+                NavigationLink(value: SettingsDest.about) {
+                    HStack(spacing: 14) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppTheme.Colors.textTertiary.opacity(0.15))
+                            .frame(width: 42, height: 42)
+                            .overlay(
+                                Image(systemName: "info.circle.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(AppTheme.Colors.textSecondary)
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("About Compass")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppTheme.Colors.textPrimary)
+                            Text("Version, feedback & open source")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.Colors.textSecondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .foregroundColor(AppTheme.Colors.textTertiary)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppTheme.Colors.textTertiary)
                     }
-                    .padding(AppTheme.Spacing.m)
-                    .background(AppTheme.Colors.bgElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
-                    .overlay(RoundedRectangle(cornerRadius: AppTheme.Radius.large).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
-                    .padding(.horizontal, AppTheme.Spacing.m)
-
-                    // Notifications
-                    SettingsSection(title: "Notifications") {
-                        SettingsToggleRow(icon: "bell.fill", iconColor: Color(hex: "#F0B429"), title: "Daily Reminder", isOn: $notificationsEnabled)
-                        if notificationsEnabled {
-                            SettingsRow(icon: "clock.fill", iconColor: AppTheme.Colors.accentTeal, title: "Reminder Time") {
-                                DatePicker("", selection: $dailyReminderTime, displayedComponents: .hourAndMinute)
-                                    .labelsHidden()
-                                    .colorScheme(.dark)
-                            }
-                        }
-                    }
-
-                    // Preferences
-                    SettingsSection(title: "Preferences") {
-                        SettingsToggleRow(icon: "moon.fill",       iconColor: Color(hex: "#C084FC"), title: "Dark Mode",   isOn: $darkModeEnabled)
-                        SettingsToggleRow(icon: "iphone.radiowaves.left.and.right", iconColor: AppTheme.Colors.accentTeal, title: "Haptic Feedback", isOn: $hapticEnabled)
-                    }
-
-                    // Privacy
-                    SettingsSection(title: "Privacy & Data") {
-                        SettingsNavRow(icon: "lock.fill",     iconColor: Color(hex: "#E8758A"), title: "App Lock")
-                        SettingsNavRow(icon: "square.and.arrow.up", iconColor: AppTheme.Colors.accentTeal, title: "Export Journal")
-                        Button(action: { showDeleteConfirm = true }) {
-                            SettingsRowBase(icon: "trash.fill", iconColor: Color(hex: "#E8758A"), title: "Delete All Data")
-                                .foregroundColor(Color(hex: "#E8758A"))
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // About
-                    SettingsSection(title: "About") {
-                        SettingsNavRow(icon: "info.circle.fill",  iconColor: AppTheme.Colors.textTertiary, title: "Version 1.0.0")
-                        SettingsNavRow(icon: "doc.text.fill",     iconColor: AppTheme.Colors.textTertiary, title: "Privacy Policy")
-                        SettingsNavRow(icon: "hand.raised.fill",  iconColor: AppTheme.Colors.textTertiary, title: "Terms of Service")
-                    }
-
-                    Spacer(minLength: 100)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
+                .buttonStyle(.plain)
+
+                rowDivider
+
+                Button { showSignOut = true } label: {
+                    HStack(spacing: 14) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(hex: "#E8758A").opacity(0.15))
+                            .frame(width: 42, height: 42)
+                            .overlay(
+                                Image(systemName: "rectangle.portrait.and.arrow.right.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color(hex: "#E8758A"))
+                            )
+                        Text("Sign Out")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color(hex: "#E8758A"))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
             }
-        }
-        .alert("Delete All Data", isPresented: $showDeleteConfirm) {
-            Button("Delete", role: .destructive) {}
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will permanently delete all your journal entries. This cannot be undone.")
+            .background(AppTheme.Colors.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
+            .padding(.horizontal, 20)
         }
     }
+
+    // MARK: - Helpers
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(AppTheme.Colors.textTertiary)
+            .tracking(1.4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 8)
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .background(AppTheme.Colors.borderSubtle)
+            .padding(.leading, 72)
+    }
 }
+
+// MARK: - Shared setting sub-screen helpers (used by sub-screens in same module)
 
 struct SettingsSection<Content: View>: View {
     let title: String
@@ -108,19 +358,17 @@ struct SettingsSection<Content: View>: View {
         VStack(spacing: 0) {
             Text(title.uppercased())
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(AppTheme.Colors.textTertiary)
+                .foregroundStyle(AppTheme.Colors.textTertiary)
                 .tracking(1.2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, AppTheme.Spacing.m)
                 .padding(.bottom, AppTheme.Spacing.s)
 
-            VStack(spacing: 0) {
-                content
-            }
-            .background(AppTheme.Colors.bgElevated)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
-            .overlay(RoundedRectangle(cornerRadius: AppTheme.Radius.large).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
-            .padding(.horizontal, AppTheme.Spacing.m)
+            VStack(spacing: 0) { content }
+                .background(AppTheme.Colors.bgElevated)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
+                .overlay(RoundedRectangle(cornerRadius: AppTheme.Radius.large).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
+                .padding(.horizontal, AppTheme.Spacing.m)
         }
     }
 }
@@ -134,15 +382,15 @@ struct SettingsRowBase: View {
         HStack(spacing: AppTheme.Spacing.m) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(iconColor.opacity(0.2))
+                    .fill(iconColor.opacity(0.18))
                     .frame(width: 34, height: 34)
                 Image(systemName: icon)
                     .font(.system(size: 15))
-                    .foregroundColor(iconColor)
+                    .foregroundStyle(iconColor)
             }
             Text(title)
                 .font(.system(size: 15))
-                .foregroundColor(AppTheme.Colors.textPrimary)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
             Spacer()
         }
         .padding(AppTheme.Spacing.m)
@@ -156,13 +404,15 @@ struct SettingsToggleRow: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        HStack {
-            SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
-            Toggle("", isOn: $isOn)
-                .tint(AppTheme.Colors.accentGold)
-                .padding(.trailing, AppTheme.Spacing.m)
+        VStack(spacing: 0) {
+            HStack {
+                SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
+                Toggle("", isOn: $isOn)
+                    .tint(AppTheme.Colors.accentGold)
+                    .padding(.trailing, AppTheme.Spacing.m)
+            }
+            Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
         }
-        Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
     }
 }
 
@@ -172,14 +422,16 @@ struct SettingsNavRow: View {
     let title: String
 
     var body: some View {
-        HStack {
-            SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.Colors.textTertiary)
-                .padding(.trailing, AppTheme.Spacing.m)
+        VStack(spacing: 0) {
+            HStack {
+                SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.Colors.textTertiary)
+                    .padding(.trailing, AppTheme.Spacing.m)
+            }
+            Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
         }
-        Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
     }
 }
 
@@ -190,10 +442,64 @@ struct SettingsRow<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack {
-            SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
-            trailing.padding(.trailing, AppTheme.Spacing.m)
+        VStack(spacing: 0) {
+            HStack {
+                SettingsRowBase(icon: icon, iconColor: iconColor, title: title)
+                trailing.padding(.trailing, AppTheme.Spacing.m)
+            }
+            Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
         }
-        Divider().background(AppTheme.Colors.borderSubtle).padding(.leading, 62)
+    }
+}
+
+// MARK: - North Star edit sheet (kept for north star flow)
+
+struct NorthStarEditSheet: View {
+    @Binding var draft: String
+    let onSave: () -> Void
+    @FocusState private var focused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppTheme.Colors.bgPrimary.ignoresSafeArea()
+                VStack(spacing: AppTheme.Spacing.xl) {
+                    Text("What do you want\nto become?")
+                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, AppTheme.Spacing.xl)
+                        .padding(.horizontal, AppTheme.Spacing.m)
+
+                    TextField("Your North Star goal", text: $draft)
+                        .font(.system(size: 17))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .tint(AppTheme.Colors.accentGold)
+                        .padding(AppTheme.Spacing.m)
+                        .background(AppTheme.Colors.bgElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
+                        .overlay(RoundedRectangle(cornerRadius: AppTheme.Radius.large).stroke(AppTheme.Colors.borderSubtle, lineWidth: 1))
+                        .focused($focused)
+                        .padding(.horizontal, AppTheme.Spacing.m)
+
+                    GlowButton(title: "Save North Star", icon: "checkmark") {
+                        focused = false; onSave(); dismiss()
+                    }
+                    .padding(.horizontal, AppTheme.Spacing.m)
+
+                    Spacer()
+                }
+            }
+            .navigationTitle("North Star")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(AppTheme.Colors.textSecondary)
+                }
+            }
+        }
+        .onAppear { focused = true }
     }
 }

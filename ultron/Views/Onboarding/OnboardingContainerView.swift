@@ -4,7 +4,14 @@ struct OnboardingContainerView: View {
     @EnvironmentObject var appVM: AppViewModel
     @State private var currentPage = 0
 
-    let pages: [OnboardingPage] = [
+    // Static: allocated once for the app's lifetime — not reallocated on every body pass.
+    private static let pages: [OnboardingPage] = [
+        OnboardingPage(
+            imageName: "lan1",
+            title: "Compass",
+            subtitle: "A mindful journaling companion\nthat helps you reflect, grow,\nand find your direction.",
+            accentColor: AppTheme.Colors.accentGold
+        ),
         OnboardingPage(
             imageName: "lan2",
             title: "Track Your Moods",
@@ -26,6 +33,7 @@ struct OnboardingContainerView: View {
     ]
 
     var body: some View {
+        let pages = Self.pages
         ZStack {
             ForEach(pages.indices, id: \.self) { i in
                 if i == currentPage {
@@ -34,7 +42,7 @@ struct OnboardingContainerView: View {
                         pageIndex: i,
                         totalPages: pages.count,
                         onNext: advancePage,
-                        onSkip: { appVM.advance(to: .home) }
+                        onSkip: { appVM.finishOnboarding() }
                     )
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -48,10 +56,10 @@ struct OnboardingContainerView: View {
     }
 
     private func advancePage() {
-        if currentPage < pages.count - 1 {
+        if currentPage < Self.pages.count - 1 {
             currentPage += 1
         } else {
-            appVM.advance(to: .home)
+            appVM.finishOnboarding()
         }
     }
 }

@@ -2,151 +2,144 @@ import SwiftUI
 
 struct ReflectionGardenView: View {
     @Environment(\.dismiss) private var dismiss
-    let categories = ReflectionPrompt.PromptCategory.allCases
-    @State private var selectedCategory: ReflectionPrompt.PromptCategory? = nil
     @State private var growIn = false
+    @State private var contentVisible = false
+
+    private let gratitudeCount = 23
 
     var body: some View {
         ZStack {
             AppTheme.Colors.bgPrimary.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: AppTheme.Spacing.xl) {
-                    // Header
-                    VStack(spacing: AppTheme.Spacing.s) {
-                        HStack {
-                            Button(action: { dismiss() }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(AppTheme.Colors.textPrimary)
-                                    .padding(12)
-                                    .background(AppTheme.Colors.bgElevated)
-                                    .clipShape(Circle())
+                VStack(spacing: 0) {
+
+                    // ── Header + flower illustration ──────────────────────
+                    ZStack(alignment: .bottom) {
+                        // Ambient glow behind flower
+                        RadialGradient(
+                            colors: [Color(hex: "#86EFAC").opacity(0.18), .clear],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 130
+                        )
+                        .frame(height: 260)
+
+                        // flower png asset — transparent PNG illustration
+                        Image("flower png")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 160)
+                            .scaleEffect(growIn ? 1.0 : 0.35)
+                            .opacity(growIn ? 1.0 : 0)
+                            .animation(.spring(response: 0.85, dampingFraction: 0.6), value: growIn)
+                            .offset(y: -16)
+
+                        VStack(spacing: 5) {
+                            Text("Reflection Garden")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Nurture what matters")
+                                .font(.system(size: 14, weight: .light))
+                                .foregroundColor(Color.white.opacity(0.55))
+                                .tracking(0.3)
+                        }
+                    }
+                    .frame(height: 290)
+                    .padding(.top, 68)
+
+                    // ── Content cards ─────────────────────────────────────
+                    VStack(spacing: AppTheme.Spacing.l) {
+
+                        // Mood This Week
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.m) {
+                                HStack {
+                                    Text("Mood This Week")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Image(systemName: "waveform.path.ecg")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color.white.opacity(0.35))
+                                }
+                                MoodLineChart(records: MoodRecord.weekSamples)
                             }
-                            Spacer()
                         }
                         .padding(.horizontal, AppTheme.Spacing.m)
 
-                        // Flower illustration
-                        ZStack {
-                            Image("flower png")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 180)
-                                .scaleEffect(growIn ? 1.0 : 0.4)
-                                .opacity(growIn ? 1.0 : 0)
-                                .animation(.spring(response: 0.8, dampingFraction: 0.6), value: growIn)
-                        }
-                        .frame(height: 160)
+                        // Gratitude Tracker
+                        GlassCard {
+                            HStack(spacing: AppTheme.Spacing.l) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Gratitude Tracker")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("entries this month")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color.white.opacity(0.45))
+                                }
 
-                        Text("Reflection Garden")
-                            .font(.system(size: 28, weight: .bold, design: .serif))
-                            .foregroundColor(AppTheme.Colors.textPrimary)
+                                Spacer()
 
-                        Text("Choose a door to begin your reflection")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppTheme.Colors.textSecondary)
-                    }
-                    .padding(.top, 60)
+                                HStack(alignment: .bottom, spacing: 4) {
+                                    Text("\(gratitudeCount)")
+                                        .font(.system(size: 40, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("logged")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color.white.opacity(0.45))
+                                        .padding(.bottom, 6)
+                                }
 
-                    // Category grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: AppTheme.Spacing.m) {
-                        ForEach(Array(categories.enumerated()), id: \.element.rawValue) { i, category in
-                            ReflectionDoorCard(category: category, index: i) {
-                                selectedCategory = category
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: "#86EFAC").opacity(0.15))
+                                        .frame(width: 44, height: 44)
+                                    Image(systemName: "leaf.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Color(hex: "#86EFAC"))
+                                }
                             }
                         }
-                    }
-                    .padding(.horizontal, AppTheme.Spacing.m)
+                        .padding(.horizontal, AppTheme.Spacing.m)
+                        .opacity(contentVisible ? 1 : 0)
+                        .offset(y: contentVisible ? 0 : 12)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.15), value: contentVisible)
 
-                    Spacer(minLength: 40)
+                        Spacer(minLength: 120)
+                    }
+                    .padding(.top, AppTheme.Spacing.l)
+                    .opacity(contentVisible ? 1 : 0)
+                    .offset(y: contentVisible ? 0 : 16)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.75), value: contentVisible)
                 }
+            }
+
+            // ── Back button ───────────────────────────────────────────────
+            VStack {
+                HStack {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(AppTheme.Colors.bgElevated)
+                            .clipShape(Circle())
+                    }
+                    .padding(.leading, AppTheme.Spacing.m)
+                    .padding(.top, 56)
+                    Spacer()
+                }
+                Spacer()
             }
         }
         .hideNavigationBar()
-        .onAppear { growIn = true }
-        .sheet(item: $selectedCategory) { cat in
-            ReflectionDetailView(category: cat)
-        }
-    }
-}
-
-extension ReflectionPrompt.PromptCategory: Identifiable {
-    public var id: String { rawValue }
-}
-
-struct ReflectionDoorCard: View {
-    let category: ReflectionPrompt.PromptCategory
-    let index: Int
-    let action: () -> Void
-    @State private var appeared = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: AppTheme.Spacing.m) {
-                ZStack {
-                    Circle()
-                        .fill(Color(hex: category.color).opacity(0.2))
-                        .frame(width: 64, height: 64)
-                    Image(systemName: category.icon)
-                        .font(.system(size: 26))
-                        .foregroundColor(Color(hex: category.color))
-                }
-                VStack(spacing: 4) {
-                    Text(category.rawValue)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppTheme.Colors.textPrimary)
-                    Text("\(ReflectionPrompt.samples.filter { $0.category == category }.count) prompts")
-                        .font(.system(size: 11))
-                        .foregroundColor(AppTheme.Colors.textTertiary)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppTheme.Spacing.l)
-            .background(AppTheme.Colors.bgElevated)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.large)
-                    .stroke(Color(hex: category.color).opacity(0.3), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 20)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double(index) * 0.07), value: appeared)
-        .onAppear { appeared = true }
-    }
-}
-
-struct ReflectionDetailView: View {
-    let category: ReflectionPrompt.PromptCategory
-    @Environment(\.dismiss) private var dismiss
-
-    var prompts: [ReflectionPrompt] {
-        ReflectionPrompt.samples.filter { $0.category == category }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.Colors.bgPrimary.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: AppTheme.Spacing.m) {
-                        ForEach(prompts) { prompt in
-                            PromptCard(prompt: prompt)
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .padding(AppTheme.Spacing.m)
-                }
-            }
-            .navigationTitle(category.rawValue)
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button("Done") { dismiss() }
-                        .foregroundColor(AppTheme.Colors.accentGold)
-                }
-            }
+        .onAppear {
+            growIn = false
+            contentVisible = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { growIn = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { contentVisible = true }
         }
     }
 }

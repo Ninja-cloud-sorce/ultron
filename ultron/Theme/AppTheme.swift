@@ -1,19 +1,19 @@
 import SwiftUI
 
 enum AppTheme {
-    // MARK: - Colors
+    // MARK: - Colors (delegates to active theme)
     enum Colors {
-        static let bgPrimary    = Color(hex: "#0D0F1A")
-        static let bgSurface    = Color(hex: "#161825")
-        static let bgElevated   = Color(hex: "#1E2133")
-        static let accentGold   = Color(hex: "#F0B429")
-        static let accentTeal   = Color(hex: "#4FC3C3")
-        static let accentRose   = Color(hex: "#E8758A")
-        static let textPrimary  = Color.white
-        static let textSecondary = Color(hex: "#A8AABC")
-        static let textTertiary = Color(hex: "#666880")
-        static let borderSubtle = Color(hex: "#2A2D42")
-        static let cardBg       = Color(hex: "#1A1D2E")
+        static var bgPrimary:     Color { ThemeManager.shared.colors.bgPrimary }
+        static var bgSurface:     Color { ThemeManager.shared.colors.bgSurface }
+        static var bgElevated:    Color { ThemeManager.shared.colors.bgElevated }
+        static var accentGold:    Color { ThemeManager.shared.colors.accentGold }
+        static var accentTeal:    Color { ThemeManager.shared.colors.accentTeal }
+        static var accentRose:    Color { ThemeManager.shared.colors.accentRose }
+        static var textPrimary:   Color { ThemeManager.shared.colors.textPrimary }
+        static var textSecondary: Color { ThemeManager.shared.colors.textSecondary }
+        static var textTertiary:  Color { ThemeManager.shared.colors.textTertiary }
+        static var borderSubtle:  Color { ThemeManager.shared.colors.borderSubtle }
+        static var cardBg:        Color { ThemeManager.shared.colors.cardBg }
     }
 
     // MARK: - Spacing

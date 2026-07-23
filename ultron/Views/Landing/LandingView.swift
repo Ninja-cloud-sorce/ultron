@@ -36,7 +36,7 @@ struct LandingView: View {
                             Text("Already have an account?")
                                 .font(.system(size: 13))
                                 .foregroundColor(AppTheme.Colors.textTertiary)
-                            Button("Sign In") { appVM.advance(to: .home) }
+                            Button("Sign In") { appVM.advance(to: .auth) }
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(AppTheme.Colors.accentGold)
                         }

@@ -3,71 +3,150 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appVM: AppViewModel
     @StateObject private var journalVM = JournalViewModel()
-    @State private var showNewEntry = false
+    @StateObject private var captureVM = CaptureViewModel()
+
+    @State private var showCaptureSheet   = false
+    @State private var showNewEntry       = false
+    @State private var showScanner        = false
+    @State private var captureSheetAction = CaptureSheetAction.none
+
+    private enum CaptureSheetAction { case none, write, capture }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             // Tab content
             Group {
                 switch appVM.selectedTab {
-                case 0:
-                    HomeScreenView()
-                        .environmentObject(journalVM)
-                case 1:
-                    JourneyView()
-                        .environmentObject(journalVM)
-                case 3:
-                    CalendarView()
-                        .environmentObject(journalVM)
-                case 4:
-                    SettingsView()
-                default:
-                    HomeScreenView()
-                        .environmentObject(journalVM)
+                case 0:  HomeScreenView().environmentObject(journalVM)
+                case 1:  JourneyView().environmentObject(journalVM)
+                case 3:  CalendarView().environmentObject(journalVM)
+                case 4:  SettingsView().environmentObject(journalVM)
+                default: HomeScreenView().environmentObject(journalVM)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.2), value: appVM.selectedTab)
 
-            CustomTabBar(selectedTab: $appVM.selectedTab, showNewEntry: $showNewEntry)
+            CustomTabBar(selectedTab: $appVM.selectedTab) {
+                showCaptureSheet = true
+            }
         }
+        // ── Write or Capture chooser ──────────────────────────────────
+        .sheet(isPresented: $showCaptureSheet, onDismiss: {
+            switch captureSheetAction {
+            case .write:   showNewEntry = true
+            case .capture: showScanner  = true
+            case .none:    break
+            }
+            captureSheetAction = .none
+        }) {
+            CaptureSheet(
+                onWrite:   { captureSheetAction = .write;   showCaptureSheet = false },
+                onCapture: { captureSheetAction = .capture; showCaptureSheet = false }
+            )
+        }
+        // ── Typed journal entry ───────────────────────────────────────
         .sheet(isPresented: $showNewEntry) {
             NewEntryView(isPresented: $showNewEntry)
                 .environmentObject(journalVM)
+        }
+        // ── Document scanner ──────────────────────────────────────────
+        .fullScreenCover(isPresented: $showScanner) {
+            CaptureScanner(
+                onScan: { pages in
+                    showScanner = false
+                    captureVM.handleScannedPages(pages)
+                },
+                onCancel: { showScanner = false }
+            )
+        }
+        // ── Review / edit OCR result ──────────────────────────────────
+        .fullScreenCover(isPresented: $captureVM.isReviewing,
+                         onDismiss: { captureVM.reset() }) {
+            if case .reviewing(let image, let text) = captureVM.flowState {
+                ReviewCaptureView(
+                    scannedImage: image,
+                    initialText:  text,
+                    onSave: { extractedText, mood, title, tags in
+                        captureVM.save(image: image, text: extractedText,
+                                       mood: mood, title: title, tags: tags,
+                                       into: journalVM)
+                    },
+                    onRetake: {
+                        captureVM.reset()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            showScanner = true
+                        }
+                    },
+                    onDismiss: { captureVM.reset() }
+                )
+            }
+        }
+        // ── OCR processing overlay ────────────────────────────────────
+        .overlay {
+            if captureVM.isProcessing {
+                ProcessingOverlay()
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.2), value: captureVM.isProcessing)
+            }
         }
         .ignoresSafeArea(.keyboard)
     }
 }
 
+// MARK: - Processing overlay
+
+private struct ProcessingOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.72).ignoresSafeArea()
+
+            VStack(spacing: AppTheme.Spacing.l) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(AppTheme.Colors.accentGold)
+                    .scaleEffect(1.4)
+
+                VStack(spacing: 6) {
+                    Text("Reading your journal…")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Extracting text with Vision AI")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.Colors.textSecondary)
+                }
+            }
+            .padding(AppTheme.Spacing.xl)
+            .background(AppTheme.Colors.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xlarge))
+            .shadow(color: .black.opacity(0.4), radius: 20, y: 10)
+        }
+    }
+}
+
 // MARK: - Custom Tab Bar
+
 struct CustomTabBar: View {
     @Binding var selectedTab: Int
-    @Binding var showNewEntry: Bool
+    let onFABTap: () -> Void
 
-    // Tab 2 is the FAB placeholder — not a real selectable tab
     private let items: [(icon: String, label: String, tag: Int)] = [
-        ("house.fill",       "Home",     0),
-        ("map.fill",         "Journey",  1),
-        ("calendar",         "Calendar", 3),
-        ("gearshape.fill",   "Settings", 4),
+        ("house.fill",     "Home",     0),
+        ("map.fill",       "Journey",  1),
+        ("calendar",       "Calendar", 3),
+        ("gearshape.fill", "Settings", 4),
     ]
 
     var body: some View {
         ZStack {
-            // Background bar
             HStack(spacing: 0) {
-                // Left two tabs
                 ForEach(items.prefix(2), id: \.tag) { item in
                     TabBarItem(icon: item.icon, label: item.label, isSelected: selectedTab == item.tag) {
                         withAnimation(.easeInOut(duration: 0.2)) { selectedTab = item.tag }
                     }
                 }
-
-                // FAB space
                 Spacer().frame(maxWidth: .infinity)
-
-                // Right two tabs
                 ForEach(items.suffix(2), id: \.tag) { item in
                     TabBarItem(icon: item.icon, label: item.label, isSelected: selectedTab == item.tag) {
                         withAnimation(.easeInOut(duration: 0.2)) { selectedTab = item.tag }
@@ -82,14 +161,13 @@ struct CustomTabBar: View {
                     .shadow(color: .black.opacity(0.45), radius: 20, y: -4)
             )
 
-            // FAB — centred, elevated above bar
-            Button(action: { showNewEntry = true }) {
+            Button(action: onFABTap) {
                 ZStack {
                     Circle()
                         .fill(AppTheme.Colors.accentGold)
                         .frame(width: 58, height: 58)
                         .shadow(color: AppTheme.Colors.accentGold.opacity(0.55), radius: 14, y: 4)
-                    Image(systemName: "plus")
+                    Image(systemName: "pencil.tip")
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundColor(.black)
                 }

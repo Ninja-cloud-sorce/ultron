@@ -17,10 +17,10 @@ struct CalendarView: View {
                     VStack(spacing: AppTheme.Spacing.s) {
                         HStack {
                             Text("Calendar")
-                                .font(.system(size: 28, weight: .bold, design: .serif))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(AppTheme.Colors.textPrimary)
                             Spacer()
-                            Text(Date().formatted(.dateTime.month(.wide).year()))
+                            Text(displayedMonth.formatted(.dateTime.month(.wide).year()))
                                 .font(.system(size: 14))
                                 .foregroundColor(AppTheme.Colors.textSecondary)
                         }
