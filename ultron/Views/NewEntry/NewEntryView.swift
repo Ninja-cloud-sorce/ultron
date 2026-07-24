@@ -5,6 +5,8 @@ struct NewEntryView: View {
     /// Non-nil when composing a backfill entry. The date is shown as a locked header and
     /// used as the entry's `entryDate`; the user cannot change it to prevent accidental backdating.
     var presetDate: Date? = nil
+    /// Pre-filled text from OCR capture flow.
+    var initialText: String = ""
 
     @EnvironmentObject var journalVM: JournalViewModel
     @State private var selectedMood: Mood = .calm
@@ -145,6 +147,11 @@ struct NewEntryView: View {
                 }
             }
             .hideNavigationBar()
+            .onAppear {
+                if text.isEmpty && !initialText.isEmpty {
+                    text = initialText
+                }
+            }
         }
     }
 

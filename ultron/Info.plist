@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Compass uses the camera to capture journal pages and update your profile photo.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Compass accesses your photo library to let you set a profile photo.</string>
-</dict>
+<dict/>
 </plist>

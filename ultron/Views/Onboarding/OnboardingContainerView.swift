@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Step enum
 
 private enum OBStep: Int {
-    case welcome, intent, frequency, northStar, ready
+    case welcome, intent, frequency, ready
 }
 
 // MARK: - Option models
@@ -44,7 +44,6 @@ struct OnboardingContainerView: View {
     @State private var step: OBStep = .welcome
     @State private var selectedIntents: Set<String> = []
     @State private var frequency: String? = nil
-    @State private var goalText: String = ""
 
     var body: some View {
         ZStack {
@@ -71,27 +70,17 @@ struct OnboardingContainerView: View {
             case .frequency:
                 OBFrequencyView(
                     selected: $frequency,
-                    onNext:  { go(to: .northStar) },
-                    onSkip:  { go(to: .northStar) }
-                )
-                .transition(slideTransition)
-                .id(OBStep.frequency.rawValue)
-
-            case .northStar:
-                OBNorthStarView(
-                    goalText: $goalText,
-                    selectedIntents: selectedIntents,
                     onNext:  { go(to: .ready) },
                     onSkip:  { go(to: .ready) }
                 )
                 .transition(slideTransition)
-                .id(OBStep.northStar.rawValue)
+                .id(OBStep.frequency.rawValue)
 
             case .ready:
                 OBReadyView(
                     selectedIntents: selectedIntents,
-                    goalText: goalText,
-                    onBegin: { appVM.finishOnboarding(goal: goalText) }
+                    goalText: "",
+                    onBegin: { appVM.finishOnboarding() }
                 )
                 .transition(slideTransition)
                 .id(OBStep.ready.rawValue)

@@ -2,28 +2,26 @@ import SwiftUI
 import Combine
 import UIKit
 
-/// State machine for the document-capture → OCR → review → save flow.
+/// State machine for the document-capture → OCR → AI-clean → animate → save flow.
 @MainActor
 final class CaptureViewModel: ObservableObject {
 
     enum FlowState {
         case idle
         case processing([UIImage])
-        case reviewing(UIImage, String)
+        case animating(UIImage, String)  // writing animation with cleaned text
+        case reviewing(UIImage, String)  // kept for direct-save fallback
         case error(String)
     }
 
     @Published private(set) var flowState: FlowState = .idle
     @Published var isProcessing = false
+    @Published var isAnimating  = false
     @Published var isReviewing  = false
 
     private let service: CaptureJournalService
 
-    // A default-parameter value is evaluated in a nonisolated context, which
-    // conflicts with @MainActor. Creating the service in the init body instead
-    // keeps everything on the main actor and silences the isolation warning.
     init() { self.service = CaptureJournalService() }
-
     init(service: CaptureJournalService) { self.service = service }
 
     func handleScannedPages(_ pages: [UIImage]) {
@@ -33,10 +31,11 @@ final class CaptureViewModel: ObservableObject {
 
         Task {
             do {
-                let text = try await service.recognizeText(from: pages)
-                flowState    = .reviewing(pages[0], text)
+                let rawText     = try await service.recognizeText(from: pages)
+                let cleanedText = await GeminiCleaningService.shared.clean(rawText)
+                flowState    = .animating(pages[0], cleanedText)
                 isProcessing = false
-                isReviewing  = true
+                isAnimating  = true
             } catch {
                 flowState    = .error(error.localizedDescription)
                 isProcessing = false
@@ -59,6 +58,7 @@ final class CaptureViewModel: ObservableObject {
     func reset() {
         flowState    = .idle
         isProcessing = false
+        isAnimating  = false
         isReviewing  = false
     }
 }

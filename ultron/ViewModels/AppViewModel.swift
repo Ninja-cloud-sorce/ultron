@@ -74,12 +74,7 @@ class AppViewModel: ObservableObject {
         withAnimation(.easeInOut(duration: 0.5)) { appState = state }
     }
 
-    func finishOnboarding(goal: String? = nil) {
-        if let g = goal?.trimmingCharacters(in: .whitespaces), !g.isEmpty {
-            NorthStarService.shared.goal = g
-        }
-        // North Star was offered during onboarding — don't show the separate screen after auth.
-        NorthStarService.shared.hasBeenSeen = true
+    func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: onboardingKey)
         advance(to: .auth)
     }

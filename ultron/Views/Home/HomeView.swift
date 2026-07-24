@@ -61,29 +61,25 @@ struct HomeView: View {
                 onCancel: { showScanner = false }
             )
         }
-        // ── Review / edit OCR result ──────────────────────────────────
-        .fullScreenCover(isPresented: $captureVM.isReviewing,
+        // ── Writing animation (OCR → Gemini clean → word-by-word reveal) ─
+        .fullScreenCover(isPresented: $captureVM.isAnimating,
                          onDismiss: { captureVM.reset() }) {
-            if case .reviewing(let image, let text) = captureVM.flowState {
-                ReviewCaptureView(
+            if case .animating(let image, let text) = captureVM.flowState {
+                JournalWritingAnimationView(
                     scannedImage: image,
-                    initialText:  text,
-                    onSave: { extractedText, mood, title, tags in
-                        captureVM.save(image: image, text: extractedText,
-                                       mood: mood, title: title, tags: tags,
-                                       into: journalVM)
-                    },
-                    onRetake: {
+                    text: text,
+                    onContinue: { cleanedText in
+                        var entry = JournalEntry()
+                        entry.text   = cleanedText
+                        entry.source = .captured
+                        journalVM.addEntry(entry)
                         captureVM.reset()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            showScanner = true
-                        }
                     },
                     onDismiss: { captureVM.reset() }
                 )
             }
         }
-        // ── OCR processing overlay ────────────────────────────────────
+        // ── OCR + AI processing overlay ───────────────────────────────
         .overlay {
             if captureVM.isProcessing {
                 ProcessingOverlay()
@@ -112,7 +108,7 @@ private struct ProcessingOverlay: View {
                     Text("Reading your journal…")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
-                    Text("Extracting text with Vision AI")
+                    Text("Scanning and polishing your words")
                         .font(.system(size: 14))
                         .foregroundColor(AppTheme.Colors.textSecondary)
                 }

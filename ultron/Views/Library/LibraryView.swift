@@ -386,11 +386,17 @@ struct LibraryView: View {
 struct MemoryCard: View {
     @EnvironmentObject private var journalVM: JournalViewModel
     let entryID: UUID
+    @State private var isShowingDetail = false
 
     var body: some View {
-        // Always read the live entry — never a cached snapshot
         if let entry = journalVM.entries.first(where: { $0.id == entryID }) {
-            cardContent(entry)
+            Button { isShowingDetail = true } label: {
+                cardContent(entry)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $isShowingDetail) {
+                EntryDetailView(entry: entry)
+            }
         }
     }
 
@@ -480,10 +486,17 @@ struct MemoryCard: View {
 private struct OnThisDayCard: View {
     @EnvironmentObject private var journalVM: JournalViewModel
     let entryID: UUID
+    @State private var isShowingDetail = false
 
     var body: some View {
         if let entry = journalVM.entries.first(where: { $0.id == entryID }) {
-            cardContent(entry)
+            Button { isShowingDetail = true } label: {
+                cardContent(entry)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $isShowingDetail) {
+                EntryDetailView(entry: entry)
+            }
         }
     }
 
@@ -558,6 +571,97 @@ private struct OnThisDayCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(entry.isBookmarked ? "Remove from Favorites" : "Add to Favorites")
+    }
+}
+
+// MARK: - Entry Detail View
+
+private struct EntryDetailView: View {
+    let entry: JournalEntry
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            AppTheme.Colors.bgPrimary.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.l) {
+                    // Space so content clears the dismiss button
+                    Spacer().frame(height: 52)
+
+                    // Date
+                    Text(entry.entryDate.formatted(
+                        .dateTime.weekday(.wide).month(.wide).day().year()
+                    ))
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.Colors.textTertiary)
+
+                    // Mood badge
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(entry.mood.color)
+                            .frame(width: 7, height: 7)
+                        Text(entry.mood.rawValue.capitalized)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(entry.mood.color)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(entry.mood.color.opacity(0.12))
+                    .clipShape(Capsule())
+
+                    // Title (if present)
+                    if !entry.title.isEmpty {
+                        Text(entry.title)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    Rectangle()
+                        .fill(AppTheme.Colors.borderSubtle)
+                        .frame(height: 1)
+
+                    // Full journal text
+                    Text(entry.text)
+                        .font(.system(size: 16))
+                        .foregroundColor(AppTheme.Colors.textPrimary)
+                        .lineSpacing(7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Tags
+                    if !entry.tags.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(entry.tags, id: \.self) { tag in
+                                    Text("#\(tag)")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(AppTheme.Colors.accentTeal.opacity(0.9))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(AppTheme.Colors.accentTeal.opacity(0.12))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer().frame(height: 40)
+                }
+                .padding(.horizontal, AppTheme.Spacing.m)
+            }
+
+            // Dismiss button
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.Colors.textSecondary)
+                    .padding(9)
+                    .background(AppTheme.Colors.bgElevated)
+                    .clipShape(Circle())
+            }
+            .padding(.top, 16)
+            .padding(.trailing, AppTheme.Spacing.m)
+        }
     }
 }
 
