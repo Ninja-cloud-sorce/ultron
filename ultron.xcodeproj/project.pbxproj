@@ -52,6 +52,9 @@
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		F8184703300EAF3C00759573 /* Exceptions for "ultron" folder in "ultron" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			assetTagsByRelativePath = {
+				PrivacyInfo.xcprivacy = (New, );
+			};
 			membershipExceptions = (
 				Info.plist,
 			);
@@ -269,6 +272,9 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
+				KnownAssetTags = (
+					New,
+				);
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
