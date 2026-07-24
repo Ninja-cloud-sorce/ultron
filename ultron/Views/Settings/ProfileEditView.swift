@@ -3,6 +3,7 @@ import PhotosUI
 
 struct ProfileEditView: View {
     @StateObject private var settings = SettingsManager.shared
+    @EnvironmentObject var journalVM: JournalViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var photosItem:      PhotosPickerItem? = nil
@@ -53,7 +54,7 @@ struct ProfileEditView: View {
             }
             .confirmationDialog("Choose Photo", isPresented: $showSourcePicker) {
                 Button("Photo Library") { showPhotosPicker = true }
-                Button("Camera") { showCamera = true }
+                Button("Camera")        { showCamera       = true  }
                 if settings.avatarData != nil {
                     Button("Remove Photo", role: .destructive) { settings.avatarData = nil }
                 }
@@ -61,6 +62,8 @@ struct ProfileEditView: View {
             }
         }
     }
+
+    // MARK: - Avatar
 
     private var avatarSection: some View {
         VStack(spacing: 16) {
@@ -100,10 +103,11 @@ struct ProfileEditView: View {
         }
     }
 
+    // MARK: - Fields
+
     private var fieldsSection: some View {
         VStack(spacing: 16) {
-            editField(label: "Display Name", placeholder: "Your name", text: $settings.username)
-            editField(label: "Title / Level", placeholder: "Explorer • Level 1", text: $settings.userTitle)
+            editField(label: "Display Name",  placeholder: "Your name",            text: $settings.username)
             editField(label: "Journey Quote", placeholder: "Your personal mantra…", text: $settings.journeyQuote)
         }
         .padding(.horizontal, 20)

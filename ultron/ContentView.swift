@@ -1,9 +1,24 @@
 import SwiftUI
 
 struct RootView: View {
-    @EnvironmentObject var appVM: AppViewModel
+    @EnvironmentObject var appVM:   AppViewModel
+    @EnvironmentObject var network: NetworkMonitor
 
     var body: some View {
+        ZStack {
+            appContent
+
+            if !network.isConnected {
+                NetworkErrorView()
+                    .transition(.opacity)
+                    .zIndex(1000)
+            }
+        }
+        .animation(.easeInOut(duration: 0.4), value: network.isConnected)
+    }
+
+    @ViewBuilder
+    private var appContent: some View {
         ZStack {
             AppTheme.Colors.bgPrimary.ignoresSafeArea()
 

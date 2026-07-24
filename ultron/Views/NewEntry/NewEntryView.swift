@@ -2,6 +2,10 @@ import SwiftUI
 
 struct NewEntryView: View {
     @Binding var isPresented: Bool
+    /// Non-nil when composing a backfill entry. The date is shown as a locked header and
+    /// used as the entry's `entryDate`; the user cannot change it to prevent accidental backdating.
+    var presetDate: Date? = nil
+
     @EnvironmentObject var journalVM: JournalViewModel
     @State private var selectedMood: Mood = .calm
     @State private var title = ""
@@ -10,6 +14,9 @@ struct NewEntryView: View {
     @FocusState private var focusedField: Field?
 
     enum Field { case title, text, tags }
+
+    private var isBackfill: Bool { presetDate != nil }
+    private var displayDate: Date { presetDate ?? Date() }
 
     var body: some View {
         NavigationStack {
@@ -20,13 +27,28 @@ struct NewEntryView: View {
                     VStack(spacing: AppTheme.Spacing.xl) {
                         // Date + close
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("New Entry")
-                                    .font(.system(size: 22, weight: .bold))
-                                    .foregroundColor(AppTheme.Colors.textPrimary)
-                                Text(Date().formatted(date: .complete, time: .omitted))
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.Colors.textTertiary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                if isBackfill {
+                                    // Locked backfill date — not editable
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "arrow.counterclockwise")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(AppTheme.Colors.accentGold.opacity(0.8))
+                                        Text("Writing for")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(AppTheme.Colors.textSecondary)
+                                    }
+                                    Text(displayDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(AppTheme.Colors.accentGold)
+                                } else {
+                                    Text("New Entry")
+                                        .font(.system(size: 22, weight: .bold))
+                                        .foregroundColor(AppTheme.Colors.textPrimary)
+                                    Text(Date().formatted(date: .complete, time: .omitted))
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.Colors.textTertiary)
+                                }
                             }
                             Spacer()
                             Button(action: { isPresented = false }) {
@@ -71,7 +93,7 @@ struct NewEntryView: View {
                                 .tracking(1.2)
                             ZStack(alignment: .topLeading) {
                                 if text.isEmpty {
-                                    Text("What's on your mind today?")
+                                    Text(isBackfill ? "What were you thinking that day?" : "What's on your mind today?")
                                         .foregroundColor(AppTheme.Colors.textTertiary)
                                         .font(.system(size: 16))
                                         .padding(.top, AppTheme.Spacing.m)
@@ -112,7 +134,7 @@ struct NewEntryView: View {
                         .padding(.horizontal, AppTheme.Spacing.m)
 
                         // Save
-                        GlowButton(title: "Save Entry", icon: "checkmark") {
+                        GlowButton(title: isBackfill ? "Save Missed Entry" : "Save Entry", icon: "checkmark") {
                             saveEntry()
                         }
                         .padding(.horizontal, AppTheme.Spacing.m)
@@ -129,7 +151,9 @@ struct NewEntryView: View {
     private func saveEntry() {
         guard !text.isEmpty else { return }
         let tagList = tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        let entry = JournalEntry(mood: selectedMood, title: title, text: text, tags: tagList)
+        let normalizedEntryDate = Calendar.current.startOfDay(for: displayDate)
+        var entry = JournalEntry(mood: selectedMood, title: title, text: text, tags: tagList)
+        entry.entryDate = normalizedEntryDate
         journalVM.addEntry(entry)
         isPresented = false
     }

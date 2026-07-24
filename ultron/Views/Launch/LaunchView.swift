@@ -49,7 +49,7 @@ struct LaunchView: View {
             // LaunchView only renders on first install (AppViewModel starts at .home
             // for returning users). Show the brand for 0.8 s then enter onboarding.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                appVM.advance(to: .landing)
+                appVM.advance(to: .onboarding)
             }
         }
     }

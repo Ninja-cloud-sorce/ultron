@@ -1,5 +1,4 @@
 import SwiftUI
-import LocalAuthentication
 
 struct PrivacyView: View {
     @StateObject private var settings = SettingsManager.shared
@@ -9,32 +8,12 @@ struct PrivacyView: View {
     @State private var showDeleteAccountAlert = false
     @State private var showExportShare        = false
     @State private var exportURL: URL?        = nil
-    @State private var faceIDMessage          = ""
-    @State private var showFaceIDError        = false
 
     var body: some View {
         ZStack {
             AppTheme.Colors.bgPrimary.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    SettingsSection(title: "App Lock") {
-                        SettingsRow(icon: "faceid", iconColor: Color(hex: "#F4845F"), title: "Face ID Lock") {
-                            Toggle("", isOn: Binding(
-                                get: { settings.faceIDLock },
-                                set: { newVal in
-                                    Task { await toggleFaceID(newVal) }
-                                }
-                            ))
-                            .tint(AppTheme.Colors.accentGold)
-                            .padding(.trailing, AppTheme.Spacing.m)
-                        }
-                        SettingsToggleRow(
-                            icon: "eye.slash.fill",
-                            iconColor: Color(hex: "#F4845F"),
-                            title: "Hide App Preview",
-                            isOn: $settings.hidePreview
-                        )
-                    }
                     SettingsSection(title: "Data") {
                         Button {
                             exportURL = prepareExport()
@@ -64,12 +43,12 @@ struct PrivacyView: View {
                         .buttonStyle(.plain)
                     }
                     SettingsSection(title: "Legal") {
-                        Button { openURL("https://example.com/privacy") } label: {
+                        Button { openURL("https://details2.carrd.co") } label: {
                             SettingsNavRow(icon: "hand.raised.fill", iconColor: AppTheme.Colors.textTertiary, title: "Privacy Policy")
                         }
                         .buttonStyle(.plain)
 
-                        Button { openURL("https://example.com/terms") } label: {
+                        Button { openURL("https://conditions9.carrd.co") } label: {
                             SettingsNavRow(icon: "doc.text.fill", iconColor: AppTheme.Colors.textTertiary, title: "Terms of Service")
                         }
                         .buttonStyle(.plain)
@@ -81,11 +60,6 @@ struct PrivacyView: View {
         }
         .navigationTitle("Privacy & Security")
         .navigationBarTitleDisplayMode(.large)
-        .alert("Face ID Unavailable", isPresented: $showFaceIDError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(faceIDMessage)
-        }
         .alert("Delete Local Data", isPresented: $showDeleteDataAlert) {
             Button("Delete", role: .destructive) { deleteLocalData() }
             Button("Cancel", role: .cancel) {}
@@ -105,30 +79,6 @@ struct PrivacyView: View {
         }
     }
 
-    private func toggleFaceID(_ enabled: Bool) async {
-        if enabled {
-            let ctx = LAContext()
-            var err: NSError?
-            guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &err) else {
-                faceIDMessage = err?.localizedDescription ?? "Face ID is not available on this device."
-                showFaceIDError = true
-                return
-            }
-            do {
-                let success = try await ctx.evaluatePolicy(
-                    .deviceOwnerAuthenticationWithBiometrics,
-                    localizedReason: "Enable Face ID lock for Compass"
-                )
-                settings.faceIDLock = success
-            } catch {
-                faceIDMessage = error.localizedDescription
-                showFaceIDError = true
-            }
-        } else {
-            settings.faceIDLock = false
-        }
-    }
-
     private func prepareExport() -> URL? {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -141,7 +91,7 @@ struct PrivacyView: View {
 
     private func deleteLocalData() {
         settings.clearAllLocalData()
-        journalVM.entries = []
+        journalVM.restoreEntries([])
         appVM.signOut()
     }
 

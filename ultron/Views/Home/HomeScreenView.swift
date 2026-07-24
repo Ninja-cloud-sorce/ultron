@@ -4,15 +4,21 @@ import CoreImage
 
 struct HomeScreenView: View {
     @EnvironmentObject var journalVM: JournalViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var showReflectionCard  = true
     @State private var showNewEntry        = false
     @State private var showAlignmentBanner = false
+    @State private var showBackfillEntry   = false
+    @State private var backfillDate        = Calendar.current.startOfDay(for: .now)
+    @State private var cachedMissedDays: [Date] = []
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
+        if h < 6  { return "Good night" }
         if h < 12 { return "Good morning" }
         if h < 17 { return "Good afternoon" }
-        return "Good evening"
+        if h < 21 { return "Good evening" }
+        return "Good night"
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -35,7 +41,7 @@ struct HomeScreenView: View {
                     // MARK: Header
                     HStack(alignment: .top, spacing: 0) {
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                            Text(greeting + ", Op.")
+                            Text("\(greeting), \(settings.username).")
                                 .font(.system(size: 30, weight: .bold))
                                 .foregroundColor(AppTheme.Colors.textPrimary)
 
@@ -47,6 +53,22 @@ struct HomeScreenView: View {
                             Text("\(journalVM.totalEntries) reflections written")
                                 .font(.system(size: 13))
                                 .foregroundColor(AppTheme.Colors.textTertiary)
+
+                            if journalVM.currentStreak > 0 {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "flame.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color(hex: "#F4845F"))
+                                    Text("\(journalVM.currentStreak) day streak")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color(hex: "#F4845F"))
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color(hex: "#F4845F").opacity(0.12))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color(hex: "#F4845F").opacity(0.3), lineWidth: 1))
+                            }
                         }
 
                         Spacer()
@@ -77,13 +99,14 @@ struct HomeScreenView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    // MARK: Stats row
-                    HStack(spacing: AppTheme.Spacing.m) {
-                        HomeStatCard(icon: "book.fill",                   value: "\(journalVM.totalEntries)", label: "Entries")
-                        HomeStatCard(icon: "calendar.badge.checkmark",    value: "\(journalVM.currentStreak)", label: "This Week")
-                        HomeStatCard(icon: "calendar",                    value: "31",                        label: "This Month")
+                    // MARK: Missed Days — driven by cachedMissedDays (updated via onChange, not recomputed every render)
+                    if !cachedMissedDays.isEmpty {
+                        MissedDaysSection(missedDays: cachedMissedDays) { date in
+                            backfillDate = date
+                            showBackfillEntry = true
+                        }
+                        .padding(.horizontal, AppTheme.Spacing.m)
                     }
-                    .padding(.horizontal, AppTheme.Spacing.m)
 
                     // MARK: Recent Entries
                     VStack(spacing: AppTheme.Spacing.s) {
@@ -94,23 +117,34 @@ struct HomeScreenView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, AppTheme.Spacing.m)
 
-                        VStack(spacing: 0) {
-                            ForEach(Array(journalVM.entries.prefix(3).enumerated()), id: \.element.id) { i, entry in
+                        VStack(spacing: AppTheme.Spacing.s) {
+                            ForEach(journalVM.entries.prefix(3)) { entry in
                                 RecentEntryRow(entry: entry)
-                                if i < min(journalVM.entries.count, 3) - 1 {
-                                    Rectangle()
-                                        .fill(AppTheme.Colors.borderSubtle)
-                                        .frame(height: 1)
-                                        .padding(.leading, AppTheme.Spacing.m)
-                                }
+                                    .background {
+                                        ZStack {
+                                            Image("entry bg")
+                                                .resizable()
+                                                .scaledToFill()
+                                            LinearGradient(
+                                                colors: [
+                                                    AppTheme.Colors.bgPrimary.opacity(0.78),
+                                                    AppTheme.Colors.bgPrimary.opacity(0.1),
+                                                    .clear
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                            LinearGradient(
+                                                colors: [.black.opacity(0.25), .clear, .clear, .black.opacity(0.15)],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        }
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                    .shadow(color: .black.opacity(0.38), radius: 16, y: 8)
                             }
                         }
-                        .background(AppTheme.Colors.bgElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.Radius.large)
-                                .stroke(AppTheme.Colors.borderSubtle, lineWidth: 1)
-                        )
                         .padding(.horizontal, AppTheme.Spacing.m)
                     }
 
@@ -121,6 +155,16 @@ struct HomeScreenView: View {
         .sheet(isPresented: $showNewEntry) {
             NewEntryView(isPresented: $showNewEntry)
                 .environmentObject(journalVM)
+        }
+        .sheet(isPresented: $showBackfillEntry) {
+            NewEntryView(isPresented: $showBackfillEntry, presetDate: backfillDate)
+                .environmentObject(journalVM)
+        }
+        .onAppear {
+            cachedMissedDays = journalVM.missedDays()
+        }
+        .onChange(of: journalVM.entries.count) {
+            cachedMissedDays = journalVM.missedDays()
         }
         .onChange(of: journalVM.latestAnalysis?.id) {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
@@ -147,11 +191,15 @@ struct MascotView: View {
                 Image("mascot")
                     .resizable()
                     .scaledToFit()
+                    .transition(.opacity)
             } else {
-                // First appearance this session — play the ProRes 4444 greeting video.
+                // First appearance this session — play the greeting video.
                 MascotVideoPlayer {
-                    session.hasPlayedMascotGreeting = true
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        session.hasPlayedMascotGreeting = true
+                    }
                 }
+                .transition(.opacity)
             }
         }
         .frame(width: 130, height: 130)
@@ -210,8 +258,9 @@ final class MascotPlayerUIView: UIView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func setup() {
-        guard let url = Bundle.main.url(forResource: "mascot_greeting", withExtension: "mov") else {
-            // File not in bundle yet — skip straight to static image.
+        // The video lives inside the reference/ folder within the bundle.
+        guard let url = Bundle.main.url(forResource: "mascot_transparent_3s", withExtension: "mov", subdirectory: "reference")
+                     ?? Bundle.main.url(forResource: "mascot_transparent_3s", withExtension: "mov") else {
             DispatchQueue.main.async { self.onFinished?() }
             return
         }
@@ -335,19 +384,12 @@ struct TodayReflectionCard: View {
                 }
             }
             .padding(AppTheme.Spacing.m)
-            // Left accent bar — overlaid before clip so corners round naturally
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(hex: "#7BC67E"))
-                    .frame(width: 3)
-                    .padding(.vertical, 10)
+            .background {
+                Image("reflection card bg")
+                    .resizable()
+                    .scaledToFill()
             }
-            .background(AppTheme.Colors.bgElevated)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.large))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.large)
-                    .stroke(AppTheme.Colors.borderSubtle, lineWidth: 1)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .buttonStyle(.plain)
         .onAppear {
@@ -493,7 +535,11 @@ struct HomeStatCard: View {
 struct RecentEntryRow: View {
     let entry: JournalEntry
 
-    private var timeAgo: String {
+    private var timeLabel: String {
+        if entry.wasBackfilled {
+            // Show the day it was written for, not the creation time
+            return entry.entryDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        }
         let diff = Date().timeIntervalSince(entry.date)
         if diff < 3600 { return "\(max(1, Int(diff / 60)))m ago" }
         if diff < 86400 { return "\(Int(diff / 3600))h ago" }
@@ -501,26 +547,100 @@ struct RecentEntryRow: View {
     }
 
     private var preview: String {
-        let text = entry.text.isEmpty ? entry.title : entry.text
-        return text
+        entry.text.isEmpty ? entry.title : entry.text
     }
 
     var body: some View {
-        HStack(spacing: AppTheme.Spacing.m) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                if entry.wasBackfilled {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 9))
+                        .foregroundColor(AppTheme.Colors.textTertiary.opacity(0.55))
+                }
+                Text(timeLabel)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(AppTheme.Colors.textTertiary)
+            }
+
             Text(preview)
-                .font(.system(size: 14))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(AppTheme.Colors.textPrimary)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-
-            Text(timeAgo)
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.Colors.textTertiary)
-                .fixedSize()
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AppTheme.Spacing.m)
-        .padding(.vertical, 14)
+        .padding(.vertical, 18)
+    }
+}
+
+// MARK: - Missed Days Section
+private struct MissedDaysSection: View {
+    let missedDays: [Date]
+    let onSelect: (Date) -> Void
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.s) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(AppTheme.Colors.accentGold.opacity(0.7))
+                Text("MISSED DAYS")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(AppTheme.Colors.textTertiary)
+                    .tracking(1.2)
+                Text("• tap to add")
+                    .font(.system(size: 10))
+                    .foregroundColor(AppTheme.Colors.textTertiary.opacity(0.5))
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.s) {
+                    ForEach(missedDays, id: \.self) { day in
+                        Button { onSelect(day) } label: {
+                            VStack(spacing: 2) {
+                                Text(Self.dayFormatter.string(from: day))
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(AppTheme.Colors.accentGold.opacity(0.75))
+                                Text(Self.dateFormatter.string(from: day))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(AppTheme.Colors.textPrimary)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.Colors.bgElevated)
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.medium))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.Radius.medium)
+                                    .stroke(AppTheme.Colors.accentGold.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Indicate that only 14 days back are available if there are more misses
+                    // before the window — omitting this here since missedDays() already
+                    // caps at the window boundary. The label below surfaces the policy.
+                }
+            }
+
+            Text("Entries can be added up to 14 days back")
+                .font(.system(size: 11))
+                .foregroundColor(AppTheme.Colors.textTertiary.opacity(0.5))
+        }
     }
 }
 

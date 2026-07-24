@@ -69,7 +69,7 @@ final class GoogleSignInService {
                 }
             }
             session.presentationContextProvider = context
-            session.prefersEphemeralWebBrowserSession = true
+            session.prefersEphemeralWebBrowserSession = false
             authSession = session
             session.start()
         }
@@ -127,7 +127,9 @@ private final class WebAuthContext: NSObject, ASWebAuthenticationPresentationCon
         if let keyWindow = scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
             return keyWindow
         }
-        let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first!
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+            return UIWindow()
+        }
         return UIWindow(windowScene: scene)
     }
 }

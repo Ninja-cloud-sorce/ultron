@@ -91,22 +91,12 @@ struct NorthStarView: View {
 
                 Spacer()
 
-                VStack(spacing: AppTheme.Spacing.s) {
-                    GlowButton(title: "Set My North Star", icon: "location.north.fill") {
-                        isFocused = false
-                        appVM.finishNorthStar(goal: goalText)
-                    }
-                    .disabled(goalText.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .padding(.horizontal, AppTheme.Spacing.m)
-
-                    Button { appVM.finishNorthStar(goal: nil) } label: {
-                        Text("Skip for now")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppTheme.Colors.textTertiary)
-                            .padding(.vertical, AppTheme.Spacing.s)
-                    }
-                    .buttonStyle(.plain)
+                GlowButton(title: "Set My North Star", icon: "location.north.fill") {
+                    isFocused = false
+                    appVM.finishNorthStar(goal: goalText)
                 }
+                .disabled(goalText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .padding(.horizontal, AppTheme.Spacing.m)
                 .padding(.bottom, 44)
             }
         }

@@ -20,6 +20,7 @@ struct SignInView: View {
     @StateObject private var vm: SignInViewModel
     @State private var showCreateAccount = false
     @State private var shakeTrigger: CGFloat = 0
+    @FocusState private var focus: SignInField?
 
     // Monster native resolution: 1888 × 2234
     private static let monsterAspect: CGFloat = 2234.0 / 1888.0
@@ -162,6 +163,10 @@ struct SignInView: View {
         .sheet(isPresented: $showCreateAccount) {
             CreateAccountView(onSuccess: vm.onSuccess)
         }
+        .sheet(isPresented: $vm.showForgotPassword, onDismiss: { vm.resetSentMessage = nil; vm.resetEmail = "" }) {
+            ForgotPasswordSheet(vm: vm)
+        }
+        .onTapGesture { focus = nil }
     }
 
     // MARK: - Title
@@ -203,52 +208,99 @@ struct SignInView: View {
     }
 
     private var emailField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "envelope")
-                .font(.system(size: 14)).foregroundColor(.gray).frame(width: 18)
-            TextField("Email", text: $vm.email)
-                .font(.system(size: 15))
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .textContentType(.emailAddress)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Image(systemName: "envelope")
+                    .font(.system(size: 14)).foregroundColor(.gray).frame(width: 18)
+                    .accessibilityHidden(true)
+                TextField("Email", text: $vm.email)
+                    .font(.system(size: 15))
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textContentType(.emailAddress)
+                    .submitLabel(.next)
+                    .focused($focus, equals: .email)
+                    .onSubmit { focus = .password }
+                    .accessibilityLabel("Email address")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .background(Color(hex: "#F5F6F8"))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(vm.emailError != nil
+                            ? Color(hex: "#B03030").opacity(0.65) : Color.clear, lineWidth: 1.5)
+            )
+            .animation(.easeInOut(duration: 0.2), value: vm.emailError != nil)
+
+            if let msg = vm.emailError {
+                Text(msg)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(hex: "#B03030"))
+                    .padding(.leading, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .accessibilityLabel(msg)
+            }
         }
-        .padding(.horizontal, 14).padding(.vertical, 13)
-        .background(Color(hex: "#F5F6F8"))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .animation(.easeInOut(duration: 0.2), value: vm.emailError)
     }
 
     private var passwordField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "lock")
-                .font(.system(size: 14)).foregroundColor(.gray).frame(width: 18)
-            Group {
-                if vm.showPassword {
-                    TextField("Password", text: $vm.password).textContentType(.password)
-                } else {
-                    SecureField("Password", text: $vm.password).textContentType(.password)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Image(systemName: "lock")
+                    .font(.system(size: 14)).foregroundColor(.gray).frame(width: 18)
+                    .accessibilityHidden(true)
+                Group {
+                    if vm.showPassword {
+                        TextField("Password", text: $vm.password)
+                            .textContentType(.password)
+                    } else {
+                        SecureField("Password", text: $vm.password)
+                            .textContentType(.password)
+                    }
                 }
+                .font(.system(size: 15))
+                .submitLabel(.go)
+                .focused($focus, equals: .password)
+                .onSubmit { if vm.canSubmit { focus = nil; vm.signIn() } }
+
+                Button {
+                    vm.showPassword.toggle()
+                } label: {
+                    Image(systemName: vm.showPassword ? "eye.slash" : "eye")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(vm.showPassword ? "Hide password" : "Show password")
             }
-            .font(.system(size: 15))
-            Button { vm.showPassword.toggle() } label: {
-                Image(systemName: vm.showPassword ? "eye.slash" : "eye")
-                    .font(.system(size: 14)).foregroundColor(.gray)
-            }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .background(Color(hex: "#F5F6F8"))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(vm.passwordFieldHasError
+                            ? Color(hex: "#B03030").opacity(0.70) : Color.clear, lineWidth: 1.5)
+            )
+
+            // Forgot password — right-aligned, below the field
+            Button("Forgot password?") { vm.showForgotPassword = true }
+                .font(.system(size: 12))
+                .foregroundColor(Color(.systemGray))
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 4)
+                .accessibilityLabel("Forgot password")
         }
-        .padding(.horizontal, 14).padding(.vertical, 13)
-        .background(Color(hex: "#F5F6F8"))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(vm.passwordFieldHasError
-                    ? Color(hex: "#B03030").opacity(0.70) : .clear, lineWidth: 1.5)
-        )
     }
 
     private var goButton: some View {
         Button {
             guard vm.canSubmit else { return }
+            focus = nil
             vm.signIn()
         } label: {
             ZStack {
@@ -265,6 +317,7 @@ struct SignInView: View {
             .frame(maxWidth: .infinity).frame(height: 50)
         }
         .disabled(!vm.canSubmit)
+        .accessibilityLabel(vm.isLoading ? "Signing in" : "Sign in")
         .animation(.easeInOut(duration: 0.2), value: vm.isSuccess)
         .animation(.easeInOut(duration: 0.2), value: vm.isLoading)
     }
@@ -396,12 +449,17 @@ private struct ShakeEffect: GeometryEffect {
     }
 }
 
-// MARK: - Create account sheet
+// MARK: - Forgot password sheet
 
-struct CreateAccountView: View {
-    let onSuccess: () -> Void
-    @StateObject private var caVM = CreateAccountViewModel()
+private struct ForgotPasswordSheet: View {
+    @ObservedObject var vm: SignInViewModel
     @Environment(\.dismiss) private var dismiss
+
+    private var resetEmailValid: Bool {
+        NSPredicate(format: "SELF MATCHES %@",
+                    "[A-Z0-9a-z._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}")
+            .evaluate(with: vm.resetEmail.trimmingCharacters(in: .whitespaces))
+    }
 
     var body: some View {
         NavigationStack {
@@ -409,7 +467,100 @@ struct CreateAccountView: View {
                 LinearGradient(
                     stops: [
                         .init(color: Color(hex: "#60C1F0"), location: 0.0),
-                        .init(color: Color(hex: "#90DE9B"), location: 1.0)
+                        .init(color: Color(hex: "#90DE9B"), location: 1.0),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    VStack(spacing: 8) {
+                        Text("Reset your password")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        Text("We'll send a link to your email.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.80))
+                    }
+                    .padding(.top, 24)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "envelope")
+                            .font(.system(size: 14)).foregroundColor(Color(.systemGray2))
+                            .frame(width: 18).accessibilityHidden(true)
+                        TextField("Your email address", text: $vm.resetEmail)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .textContentType(.emailAddress)
+                            .font(.system(size: 15))
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 13)
+                    .background(Color(hex: "#F5F6F8"))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 24)
+
+                    if let msg = vm.resetSentMessage {
+                        Text(msg)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .transition(.opacity)
+                    }
+
+                    Button {
+                        vm.sendPasswordReset()
+                    } label: {
+                        ZStack {
+                            if vm.isSendingReset {
+                                ProgressView().tint(.white)
+                            } else {
+                                Text("Send Reset Link")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(Color(hex: "#1F7B4D").opacity(resetEmailValid ? 1 : 0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!resetEmailValid || vm.isSendingReset)
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+                .animation(.easeInOut(duration: 0.2), value: vm.resetSentMessage)
+            }
+            .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }.foregroundColor(.white)
+                }
+            }
+        }
+        .preferredColorScheme(.light)
+    }
+}
+
+// MARK: - Create account sheet
+
+struct CreateAccountView: View {
+    let onSuccess: () -> Void
+    @StateObject private var caVM = CreateAccountViewModel()
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var caFocus: CAField?
+
+    enum CAField: Hashable { case email, password, confirm }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    stops: [
+                        .init(color: Color(hex: "#60C1F0"), location: 0.0),
+                        .init(color: Color(hex: "#90DE9B"), location: 1.0),
                     ],
                     startPoint: .top, endPoint: .bottom
                 )
@@ -422,18 +573,61 @@ struct CreateAccountView: View {
                         .padding(.top, 24)
 
                     VStack(spacing: 12) {
-                        caField("envelope",   "Email",            $caVM.email,    false)
-                        caField("lock",        "Password",         $caVM.password, true)
-                        caField("lock.shield", "Confirm Password", $caVM.confirm,  true)
+                        // Email
+                        VStack(alignment: .leading, spacing: 4) {
+                            caTextField("envelope", "Email", $caVM.email,
+                                        secure: false, focus: $caFocus, field: .email,
+                                        next: .password)
+                            if let err = caVM.emailError {
+                                Text(err).font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .padding(.leading, 6)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .animation(.easeInOut(duration: 0.2), value: caVM.emailError)
+
+                        // Password
+                        VStack(alignment: .leading, spacing: 4) {
+                            caSecureField("lock", "Password (min 6 chars)",
+                                          $caVM.password, show: $caVM.showPassword,
+                                          focus: $caFocus, field: .password, next: .confirm)
+                            if let err = caVM.passwordError {
+                                Text(err).font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .padding(.leading, 6)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .animation(.easeInOut(duration: 0.2), value: caVM.passwordError)
+
+                        // Confirm password
+                        VStack(alignment: .leading, spacing: 4) {
+                            caSecureField("lock.shield", "Confirm Password",
+                                          $caVM.confirm, show: $caVM.showConfirm,
+                                          focus: $caFocus, field: .confirm, next: nil)
+                            if let err = caVM.confirmError {
+                                Text(err).font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .padding(.leading, 6)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .animation(.easeInOut(duration: 0.2), value: caVM.confirmError)
                     }
                     .padding(.horizontal, 24)
 
                     if let err = caVM.errorMessage {
                         Text(err).font(.system(size: 13)).foregroundColor(.white)
+                            .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
+                            .transition(.opacity)
                     }
 
-                    Button { caVM.createAccount { onSuccess(); dismiss() } } label: {
+                    Button {
+                        caFocus = nil
+                        caVM.createAccount { onSuccess(); dismiss() }
+                    } label: {
                         ZStack {
                             if caVM.isLoading { ProgressView().tint(.white) }
                             else {
@@ -443,12 +637,16 @@ struct CreateAccountView: View {
                             }
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(Color(hex: "#1F7B4D"))
+                        .background(Color(hex: "#1F7B4D").opacity(caVM.canSubmit ? 1 : 0.5))
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .buttonStyle(.plain).disabled(caVM.isLoading).padding(.horizontal, 24)
+                    .buttonStyle(.plain)
+                    .disabled(!caVM.canSubmit)
+                    .padding(.horizontal, 24)
+
                     Spacer()
                 }
+                .animation(.easeInOut(duration: 0.2), value: caVM.errorMessage)
             }
             .navigationTitle("").navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -458,18 +656,67 @@ struct CreateAccountView: View {
             }
         }
         .preferredColorScheme(.light)
+        .onTapGesture { caFocus = nil }
     }
 
-    private func caField(_ icon: String, _ placeholder: String,
-                         _ text: Binding<String>, _ secure: Bool) -> some View {
+    // MARK: - Field builders
+
+    private func caTextField(
+        _ icon: String, _ placeholder: String,
+        _ text: Binding<String>, secure: Bool,
+        focus: FocusState<CAField?>.Binding, field: CAField, next: CAField?
+    ) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14)).foregroundColor(Color(.systemGray2)).frame(width: 18)
+                .font(.system(size: 14)).foregroundColor(Color(.systemGray2))
+                .frame(width: 18).accessibilityHidden(true)
+            TextField(placeholder, text: text)
+                .font(.system(size: 15))
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .textContentType(.emailAddress)
+                .submitLabel(next == nil ? .done : .next)
+                .focused(focus, equals: field)
+                .onSubmit { focus.wrappedValue = next }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 13)
+        .background(Color(hex: "#F5F6F8"))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func caSecureField(
+        _ icon: String, _ placeholder: String,
+        _ text: Binding<String>, show: Binding<Bool>,
+        focus: FocusState<CAField?>.Binding, field: CAField, next: CAField?
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14)).foregroundColor(Color(.systemGray2))
+                .frame(width: 18).accessibilityHidden(true)
             Group {
-                if secure { SecureField(placeholder, text: text) }
-                else      { TextField(placeholder,   text: text) }
+                if show.wrappedValue {
+                    TextField(placeholder, text: text)
+                        .textContentType(field == .confirm ? .password : .newPassword)
+                } else {
+                    SecureField(placeholder, text: text)
+                        .textContentType(field == .confirm ? .password : .newPassword)
+                }
             }
             .font(.system(size: 15))
+            .submitLabel(next == nil ? .done : .next)
+            .focused(focus, equals: field)
+            .onSubmit { focus.wrappedValue = next }
+
+            Button {
+                show.wrappedValue.toggle()
+            } label: {
+                Image(systemName: show.wrappedValue ? "eye.slash" : "eye")
+                    .font(.system(size: 14)).foregroundColor(Color(.systemGray2))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(show.wrappedValue ? "Hide password" : "Show password")
         }
         .padding(.horizontal, 14).padding(.vertical, 13)
         .background(Color(hex: "#F5F6F8"))
@@ -479,24 +726,55 @@ struct CreateAccountView: View {
 
 @MainActor
 private final class CreateAccountViewModel: ObservableObject {
-    @Published var email    = ""
-    @Published var password = ""
-    @Published var confirm  = ""
+    @Published var email        = ""
+    @Published var password     = ""
+    @Published var confirm      = ""
+    @Published var showPassword = false
+    @Published var showConfirm  = false
     @Published var isLoading    = false
     @Published var errorMessage: String?
 
+    private static let emailPredicate = NSPredicate(
+        format: "SELF MATCHES %@",
+        "[A-Z0-9a-z._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}"
+    )
+
+    var emailError: String? {
+        let t = email.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return nil }
+        return Self.emailPredicate.evaluate(with: t) ? nil : "Enter a valid email address"
+    }
+
+    var passwordError: String? {
+        guard !password.isEmpty else { return nil }
+        return password.count >= 6 ? nil : "Must be at least 6 characters"
+    }
+
+    var confirmError: String? {
+        guard !confirm.isEmpty else { return nil }
+        return confirm == password ? nil : "Passwords don't match"
+    }
+
+    var canSubmit: Bool {
+        emailError == nil && !email.trimmingCharacters(in: .whitespaces).isEmpty
+            && passwordError == nil && !password.isEmpty
+            && confirmError == nil && !confirm.isEmpty
+            && !isLoading
+    }
+
     func createAccount(completion: @escaping () -> Void) {
-        guard password == confirm else { errorMessage = "Passwords don't match."; return }
+        guard canSubmit else { return }
         Task {
             isLoading = true; errorMessage = nil
             do {
-                try await MockAuthenticationService.shared.createAccount(
-                    email: email, password: password)
+                try await FirebaseAuthenticationService.shared.createAccount(
+                    email: email.trimmingCharacters(in: .whitespaces),
+                    password: password
+                )
                 completion()
             } catch {
                 isLoading = false
-                errorMessage = (error as? LocalizedError)?.errorDescription
-                    ?? "Something went wrong."
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? "Something went wrong."
             }
         }
     }

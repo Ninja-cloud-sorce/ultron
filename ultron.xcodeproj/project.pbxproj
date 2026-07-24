@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		F8104A6B3012326C0052F718 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = F8104A6A3012326C0052F718 /* FirebaseCore */; };
 		F8104A6D301232770052F718 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = F8104A6C301232770052F718 /* FirebaseAuth */; };
+		F85A159E30133A65000625A5 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = F85A159D30133A65000625A5 /* Config.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +33,7 @@
 		F81846E1300EAF3B00759573 /* ultron.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ultron.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F81846F1300EAF3C00759573 /* ultronTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ultronTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F81846FB300EAF3C00759573 /* ultronUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ultronUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F85A159D30133A65000625A5 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		F8CD05CC3010B6BA002480EA /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		F8CD05CD3010B6C1002480EA /* ImageStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStorageService.swift; sourceTree = "<group>"; };
 		F8CD05CE3010B6C6002480EA /* CaptureJournalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureJournalService.swift; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 				F8CD05C93010B6AA002480EA /* Services */,
 				F8CD05CA3010B6AD002480EA /* Features */,
 				F8104A693012325E0052F718 /* Frameworks */,
+				F85A159D30133A65000625A5 /* Config.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -312,6 +315,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F85A159E30133A65000625A5 /* Config.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

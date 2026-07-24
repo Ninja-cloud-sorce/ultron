@@ -13,11 +13,11 @@ struct NotificationsView: View {
                         permissionBanner
                     }
 
-                    SettingsSection(title: "Daily Reminder") {
+                    SettingsSection(title: "Morning Reminder") {
                         SettingsToggleRow(
-                            icon: "bell.fill",
+                            icon: "sunrise.fill",
                             iconColor: AppTheme.Colors.accentGold,
-                            title: "Daily Reminder",
+                            title: "Morning Reminder",
                             isOn: $notif.dailyEnabled
                         )
                         if notif.dailyEnabled {
@@ -31,20 +31,20 @@ struct NotificationsView: View {
 
                     SettingsSection(title: "Activity") {
                         SettingsToggleRow(
-                            icon: "flame.fill",
-                            iconColor: Color(hex: "#F4845F"),
-                            title: "Streak Reminder",
+                            icon: "moon.stars.fill",
+                            iconColor: Color(hex: "#9B8BE6"),
+                            title: "Evening Reflection",
                             isOn: $notif.streakEnabled
                         )
                         SettingsToggleRow(
                             icon: "chart.bar.fill",
                             iconColor: AppTheme.Colors.accentTeal,
-                            title: "Weekly Digest",
+                            title: "Weekly Reflection",
                             isOn: $notif.weeklyEnabled
                         )
                         SettingsToggleRow(
                             icon: "sparkles",
-                            iconColor: Color(hex: "#9B8BE6"),
+                            iconColor: Color(hex: "#F4845F"),
                             title: "Motivational Quotes",
                             isOn: $notif.quotesEnabled
                         )

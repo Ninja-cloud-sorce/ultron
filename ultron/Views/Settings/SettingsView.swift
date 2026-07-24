@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Navigation destinations
 
 enum SettingsDest: Hashable {
-    case appearance, journalPrefs, notifications, aiSettings, privacy, backup, about
+    case journalPrefs, notifications, privacy, backup, about, achievements
 }
 
 // MARK: - Main Settings View
@@ -12,9 +12,10 @@ struct SettingsView: View {
     @EnvironmentObject var appVM:     AppViewModel
     @EnvironmentObject var journalVM: JournalViewModel
     @EnvironmentObject var theme:     ThemeManager
-    @StateObject private var settings = SettingsManager.shared
-    @State private var showSignOut    = false
-    @State private var showProfile    = false
+    @StateObject private var settings   = SettingsManager.shared
+    @State private var showSignOut      = false
+    @State private var showProfile      = false
+    @State private var showAppearance   = false
 
     var body: some View {
         NavigationStack {
@@ -26,6 +27,7 @@ struct SettingsView: View {
                         profileCard
                             .padding(.horizontal, 20)
                             .padding(.bottom, 24)
+                        achievementsCard
                         prefsSection
                             .padding(.bottom, 24)
                         moreSection
@@ -35,17 +37,19 @@ struct SettingsView: View {
             }
             .navigationDestination(for: SettingsDest.self) { dest in
                 switch dest {
-                case .appearance:    AppearanceView().environmentObject(theme)
-                case .journalPrefs:  JournalPreferencesView()
-                case .notifications: NotificationsView()
-                case .aiSettings:    AISettingsView()
-                case .privacy:       PrivacyView().environmentObject(journalVM).environmentObject(appVM)
-                case .backup:        BackupView().environmentObject(journalVM)
-                case .about:         AboutView()
+                case .journalPrefs:   JournalPreferencesView()
+                case .notifications:  NotificationsView()
+                case .privacy:        PrivacyView().environmentObject(journalVM).environmentObject(appVM)
+                case .backup:         BackupView().environmentObject(journalVM)
+                case .about:          AboutView()
+                case .achievements:   AchievementsView().environmentObject(journalVM)
                 }
             }
             .sheet(isPresented: $showProfile) {
-                ProfileEditView()
+                ProfileEditView().environmentObject(journalVM)
+            }
+            .sheet(isPresented: $showAppearance) {
+                AppearancePickerSheet().environmentObject(theme)
             }
             .alert("Sign Out", isPresented: $showSignOut) {
                 Button("Sign Out", role: .destructive) { appVM.signOut() }
@@ -104,9 +108,6 @@ struct SettingsView: View {
                         Text(settings.username)
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(AppTheme.Colors.textPrimary)
-                        Text(settings.userTitle)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AppTheme.Colors.accentGold)
                         Text(settings.journeyQuote)
                             .font(.system(size: 12))
                             .foregroundStyle(AppTheme.Colors.textSecondary)
@@ -211,19 +212,115 @@ struct SettingsView: View {
             .frame(width: 1, height: 36)
     }
 
+    // MARK: - Achievements card
+
+    private var achievementsVM: AchievementsViewModel {
+        AchievementsViewModel(
+            totalEntries:    journalVM.totalEntries,
+            currentStreak:   journalVM.currentStreak,
+            hasAIReflection: JournalAnalysisRepository.shared.allAnalyses().count > 0,
+            hasNorthStar:    NorthStarService.shared.isSet
+        )
+    }
+
+    private var achievementsCard: some View {
+        NavigationLink(value: SettingsDest.achievements) {
+            VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppTheme.Colors.accentGold.opacity(0.18))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(AppTheme.Colors.accentGold)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Achievements")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                        let vm = achievementsVM
+                        Text("\(vm.unlockedCount) of \(vm.achievements.count) unlocked")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.Colors.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.Colors.textTertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+
+                Divider()
+                    .background(AppTheme.Colors.borderSubtle)
+
+                HStack(spacing: 0) {
+                    ForEach(achievementsVM.achievements) { achievement in
+                        let accent = Color(hex: achievement.colorHex)
+                        ZStack {
+                            Circle()
+                                .fill(achievement.isUnlocked ? accent.opacity(0.16) : AppTheme.Colors.bgPrimary)
+                                .frame(width: 38, height: 38)
+                                .overlay(Circle().stroke(achievement.isUnlocked ? accent.opacity(0.4) : AppTheme.Colors.borderSubtle, lineWidth: 1))
+                            Image(systemName: achievement.icon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(achievement.isUnlocked ? accent : AppTheme.Colors.textTertiary)
+                        }
+                        .opacity(achievement.isUnlocked ? 1.0 : 0.4)
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 14)
+            }
+            .background(AppTheme.Colors.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AppTheme.Colors.borderSubtle, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 24)
+    }
+
     // MARK: - Preferences section
 
     private var prefsSection: some View {
         VStack(spacing: 0) {
             sectionLabel("PREFERENCES")
             VStack(spacing: 0) {
-                prefsRow(icon: "book.fill",           bg: Color(hex: "#6DB382"), title: "Journal Preferences", sub: "Templates, goals, writing habits",  dest: .journalPrefs)
-                rowDivider
-                prefsRow(icon: "paintbrush.fill",     bg: Color(hex: "#9B8BE6"), title: "Appearance",          sub: "Themes, display & visual style",    dest: .appearance)
+                Button { showAppearance = true } label: {
+                    HStack(spacing: 14) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(hex: "#9B8BE6").opacity(0.18))
+                            .frame(width: 42, height: 42)
+                            .overlay(
+                                Image(systemName: "paintbrush.fill")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundStyle(Color(hex: "#9B8BE6"))
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Appearance")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppTheme.Colors.textPrimary)
+                            Text("Themes, display & visual style")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.Colors.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppTheme.Colors.textTertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
                 rowDivider
                 prefsRow(icon: "bell.fill",           bg: AppTheme.Colors.accentGold, title: "Notifications",  sub: "Daily reminders, streak alerts",   dest: .notifications)
-                rowDivider
-                prefsRow(icon: "sparkles",            bg: AppTheme.Colors.accentRose, title: "AI & Insights",  sub: "Summaries, mood, coach & search",  dest: .aiSettings)
                 rowDivider
                 prefsRow(icon: "lock.shield.fill",    bg: Color(hex: "#F4845F"), title: "Privacy & Security",  sub: "Face ID, data export, account",    dest: .privacy)
                 rowDivider
@@ -391,6 +488,8 @@ struct SettingsRowBase: View {
             Text(title)
                 .font(.system(size: 15))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Spacer()
         }
         .padding(AppTheme.Spacing.m)

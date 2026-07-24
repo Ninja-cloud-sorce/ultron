@@ -7,7 +7,8 @@ enum JournalSource: String, Codable {
 
 struct JournalEntry: Identifiable, Codable {
     var id: UUID = UUID()
-    var date: Date = Date()
+    var date: Date = Date()          // actual creation timestamp
+    var entryDate: Date = Calendar.current.startOfDay(for: Date())  // calendar day this entry represents, normalized to midnight
     var mood: Mood = .calm
     var title: String = ""
     var text: String = ""
@@ -18,6 +19,11 @@ struct JournalEntry: Identifiable, Codable {
     var imagePath: String? = nil    // relative path inside Documents/journal_captures/
     var clarifiedText: String? = nil
 
+    /// True when the entry was written on a different calendar day than the one it represents.
+    var wasBackfilled: Bool {
+        !Calendar.current.isDate(entryDate, inSameDayAs: date)
+    }
+
     var excerpt: String {
         text.count > 120 ? String(text.prefix(120)) + "…" : text
     }
@@ -25,18 +31,18 @@ struct JournalEntry: Identifiable, Codable {
     var formattedDate: String {
         let f = DateFormatter()
         f.dateFormat = "MMM d, yyyy"
-        return f.string(from: date)
+        return f.string(from: entryDate)
     }
 
     var dayString: String {
         let f = DateFormatter()
         f.dateFormat = "d"
-        return f.string(from: date)
+        return f.string(from: entryDate)
     }
 
     var monthString: String {
         let f = DateFormatter()
         f.dateFormat = "MMM"
-        return f.string(from: date)
+        return f.string(from: entryDate)
     }
 }

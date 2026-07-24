@@ -1,7 +1,10 @@
 import UIKit
 
 /// Persists scanned journal images to the local Documents directory.
-/// Only relative file paths are stored in the model layer — never raw image data.
+/// The captures directory is scoped to the current user's UID via UserContext
+/// so no two accounts share image storage.
+/// Only the image filename is stored in the model — the full path is reconstructed
+/// at load time using the current user's directory.
 final class ImageStorageService {
 
     static let shared = ImageStorageService()
@@ -17,9 +20,13 @@ final class ImageStorageService {
         }
     }
 
+    // Computed: resolves against the active uid so each user has an isolated images folder.
     private var capturesDirectory: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("journal_captures", isDirectory: true)
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent(
+            "\(UserContext.shared.uid)_journal_captures",
+            isDirectory: true
+        )
     }
 
     /// Saves a UIImage as JPEG and returns a relative path (relative to Documents).
@@ -35,10 +42,19 @@ final class ImageStorageService {
         }
         let filename = "\(UUID().uuidString).jpg"
         try data.write(to: dir.appendingPathComponent(filename))
+        // Store only the filename — loadImage() reconstructs the full path from the
+        // current user's captures directory so the path survives account switches.
         return "journal_captures/\(filename)"
     }
 
     func loadImage(relativePath: String) -> UIImage? {
+        // Extract the filename and look in the current user's UID-scoped directory.
+        let filename = URL(fileURLWithPath: relativePath).lastPathComponent
+        let userScopedPath = capturesDirectory.appendingPathComponent(filename).path
+        if let img = UIImage(contentsOfFile: userScopedPath) { return img }
+
+        // Fallback: images captured before the isolation fix lived in the global
+        // 'journal_captures/' directory — support loading them transparently.
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return UIImage(contentsOfFile: docs.appendingPathComponent(relativePath).path)
     }

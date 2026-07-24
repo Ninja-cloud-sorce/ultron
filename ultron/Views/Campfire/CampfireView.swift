@@ -16,7 +16,7 @@ struct CampfireView: View {
                     CampfireHeroImage()
 
                     VStack(spacing: 14) {
-                        MoodChartCard()
+                        MoodChartCard(records: journalVM.moodHistory)
                         StreakCard(streak: journalVM.currentStreak)
                     }
                     .padding(.horizontal, 16)
@@ -95,13 +95,15 @@ struct CampfireHeroImage: View {
 // MARK: - Mood Chart Card
 
 struct MoodChartCard: View {
+    let records: [MoodRecord]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Mood This Week")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
 
-            WeeklyMoodChart(records: MoodRecord.weekSamples)
+            WeeklyMoodChart(records: records)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
@@ -247,7 +249,7 @@ struct StreakCard: View {
                     .font(.system(size: 44, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                Text("times this month")
+                Text("day streak")
                     .font(.system(size: 13))
                     .foregroundColor(Color.white.opacity(0.5))
             }

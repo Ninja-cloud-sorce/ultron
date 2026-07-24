@@ -1,23 +1,40 @@
 import Foundation
 
-/// Stores DirectionAnalysis values keyed by journal entry ID in UserDefaults.
+/// Stores DirectionAnalysis values keyed by journal entry ID.
+/// Persists to UserDefaults under a UID-scoped key so each account's
+/// analyses are completely isolated.
 final class JournalAnalysisRepository {
     static let shared = JournalAnalysisRepository()
     private init() {}
 
-    private let storageKey = "compass_analyses_v1"
-    private let decoder    = JSONDecoder()
-    private let encoder    = JSONEncoder()
+    private let decoder = JSONDecoder()
+    private let encoder = JSONEncoder()
+
+    // In-memory cache — invalidated on every user switch.
+    private var _cache: [DirectionAnalysis]? = nil
+
+    // Key computed per user — never reads or writes another user's analyses.
+    private var storageKey: String { UserContext.shared.key("compass_analyses_v1") }
+
+    /// Drop the in-memory cache. Call after a user switch so the next read
+    /// rehydrates from the new user's UID-scoped UserDefaults key.
+    func invalidateCache() { _cache = nil }
 
     private func load() -> [DirectionAnalysis] {
+        if let cached = _cache { return cached }
         guard
             let data    = UserDefaults.standard.data(forKey: storageKey),
             let decoded = try? decoder.decode([DirectionAnalysis].self, from: data)
-        else { return [] }
+        else {
+            _cache = []
+            return []
+        }
+        _cache = decoded
         return decoded
     }
 
     private func persist(_ analyses: [DirectionAnalysis]) {
+        _cache = analyses
         guard let data = try? encoder.encode(analyses) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
@@ -46,7 +63,7 @@ final class JournalAnalysisRepository {
         return all.map(\.alignmentScore).reduce(0, +) / all.count
     }
 
-    func bestWeek() -> String  { weekLabel(maximizing: true) }
+    func bestWeek()  -> String { weekLabel(maximizing: true)  }
     func worstWeek() -> String { weekLabel(maximizing: false) }
 
     private func weekLabel(maximizing: Bool) -> String {

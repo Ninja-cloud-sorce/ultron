@@ -1,58 +1,6 @@
 import SwiftUI
 import AuthenticationServices
 
-// MARK: - Apple Sign-In Coordinator
-
-private final class AppleSignInCoordinator: NSObject,
-    ASAuthorizationControllerDelegate,
-    ASAuthorizationControllerPresentationContextProviding
-{
-    var onComplete: (Bool) -> Void
-    // Must be retained — ASAuthorizationController does NOT retain itself.
-    // If it goes out of scope after performRequests(), the delegate never fires.
-    private var authController: ASAuthorizationController?
-
-    init(onComplete: @escaping (Bool) -> Void) {
-        self.onComplete = onComplete
-    }
-
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        if let keyWindow = scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
-            return keyWindow
-        }
-        // No key window — create one from the active scene (safe: always non-nil in a running app)
-        let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first!
-        return UIWindow(windowScene: scene)
-    }
-
-    func authorizationController(controller: ASAuthorizationController,
-                                  didCompleteWithAuthorization authorization: ASAuthorization) {
-        authController = nil
-        DispatchQueue.main.async { self.onComplete(true) }
-    }
-
-    func authorizationController(controller: ASAuthorizationController,
-                                  didCompleteWithError error: Error) {
-        authController = nil
-        let code = (error as? ASAuthorizationError)?.code
-        if code != .canceled {
-            DispatchQueue.main.async { self.onComplete(false) }
-        }
-    }
-
-    func startSignIn() {
-        let provider = ASAuthorizationAppleIDProvider()
-        let request = provider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        controller.delegate = self
-        controller.presentationContextProvider = self
-        authController = controller   // retain before performRequests()
-        controller.performRequests()
-    }
-}
-
 // MARK: - Step
 
 enum SignUpStep: CaseIterable {
@@ -69,7 +17,6 @@ enum SignUpStep: CaseIterable {
     var isSecure: Bool { self != .email }
     var keyboardType: UIKeyboardType { self == .email ? .emailAddress : .default }
     var identityIcon: String { self == .email ? "envelope" : "lock" }
-    var actionIcon: String { self == .repeatPassword ? "paperplane.fill" : "arrow.up" }
 
     var next: SignUpStep? {
         switch self {
@@ -87,49 +34,47 @@ struct SignUpCardView: View {
     var onSuccess: () -> Void = {}
     var onSkip:    () -> Void = {}
 
+    // Default to sign-in so returning users can authenticate immediately.
+    @State private var isSignInMode: Bool = true
+
     @State private var currentStep: SignUpStep = .email
     @State private var inputText: String = ""
     @State private var showSuccess: Bool = false
     @State private var errorMessage: String? = nil
     @State private var isSubmitting: Bool = false
 
-    // Stored across steps for final Firebase call
     @State private var storedEmail: String = ""
     @State private var storedPassword: String = ""
 
-    @State private var appleCoordinator: AppleSignInCoordinator?
     @State private var isLoadingGoogle = false
+    @State private var isLoadingApple  = false
+    @FocusState private var focused: SignUpStep?
 
-    private let lavender  = Color(red: 0.68, green: 0.64, blue: 0.90)
-    private let cardCream = Color(red: 0.995, green: 0.990, blue: 0.972)
-    private let cardTan   = Color(red: 0.71,  green: 0.63,  blue: 0.51)
-    private let pillFill  = Color(red: 240/255, green: 240/255, blue: 240/255)
-    private let nearBlack = Color(red: 0.13,  green: 0.11,  blue: 0.17)
-    private let errorRed  = Color(red: 0.85,  green: 0.22,  blue: 0.22)
+    private let lavender = Color(red: 0.68, green: 0.64, blue: 0.90)
+    private let pillFill = Color.white.opacity(0.12)
+    private let errorRed = Color(red: 1.0, green: 0.45, blue: 0.45)
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            Image("bg")
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
+            BackgroundImageView(imageName: "bg")
 
             VStack(spacing: 14) {
                 card
                     .padding(.horizontal, 38)
 
                 socialButtons
+
+                modeToggleLink
             }
 
-            // Skip button pinned to bottom center
             VStack {
                 Spacer()
                 Button { onSkip() } label: {
                     Text("Skip for now")
                         .font(.system(size: 14))
-                        .foregroundColor(.black.opacity(0.45))
+                        .foregroundColor(.white.opacity(0.45))
                         .underline()
                 }
                 .buttonStyle(.plain)
@@ -142,13 +87,13 @@ struct SignUpCardView: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("SIGN UP")
+            Text(isSignInMode ? "SIGN IN" : "SIGN UP")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(nearBlack)
+                .foregroundColor(.white)
 
-            Text("Fill in all informations")
+            Text(isSignInMode ? "Welcome back!" : "Fill in all informations")
                 .font(.system(size: 13))
-                .foregroundColor(Color(red: 0.50, green: 0.50, blue: 0.52))
+                .foregroundColor(Color.white.opacity(0.55))
 
             if let err = errorMessage {
                 Text(err)
@@ -166,11 +111,10 @@ struct SignUpCardView: View {
         .animation(.easeInOut(duration: 0.2), value: errorMessage)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(cardCream)
-                .background(
+                .fill(.ultraThinMaterial)
+                .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(cardTan)
-                        .offset(x: 7, y: 7)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 )
         )
     }
@@ -179,11 +123,10 @@ struct SignUpCardView: View {
 
     private var socialButtons: some View {
         HStack(spacing: 12) {
-            // Google — white pill, original-color logo from assets
             Button { signInWithGoogle() } label: {
                 HStack(spacing: 10) {
                     if isLoadingGoogle {
-                        ProgressView().scaleEffect(0.75)
+                        ProgressView().tint(.white).scaleEffect(0.75)
                             .frame(width: 20, height: 20)
                     } else {
                         Image("google logo")
@@ -194,32 +137,66 @@ struct SignUpCardView: View {
                     }
                     Text("Google")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(Color.white)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
+                )
             }
             .buttonStyle(.plain)
             .disabled(isLoadingGoogle)
 
-            // Apple — black pill, white logo (HIG standard)
             Button { signInWithApple() } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "apple.logo")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.white)
+                    if isLoadingApple {
+                        ProgressView().tint(.white).scaleEffect(0.75)
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.white)
+                    }
                     Text("Apple")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.white)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black))
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
+                )
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 38)
+    }
+
+    // MARK: - Mode toggle link
+
+    private var modeToggleLink: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isSignInMode.toggle()
+                resetForm()
+            }
+        } label: {
+            Text(isSignInMode ? "New here? **Create account**" : "Already have an account? **Sign in**")
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.65))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Row Container
@@ -239,6 +216,11 @@ struct SignUpCardView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.70), value: showSuccess)
     }
 
+    private var keyboardSubmitLabel: SubmitLabel {
+        let isLast = isSignInMode ? currentStep == .password : currentStep == .repeatPassword
+        return isLast ? .go : .next
+    }
+
     // MARK: - Input Row
 
     private var inputRow: some View {
@@ -246,21 +228,24 @@ struct SignUpCardView: View {
             Group {
                 if currentStep.isSecure {
                     SecureField(currentStep.placeholder, text: $inputText)
+                        .focused($focused, equals: currentStep)
+                        .submitLabel(keyboardSubmitLabel)
+                        .onSubmit { handleIconTap() }
                 } else {
                     TextField(currentStep.placeholder, text: $inputText)
                         .keyboardType(currentStep.keyboardType)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focused, equals: currentStep)
+                        .submitLabel(keyboardSubmitLabel)
+                        .onSubmit { handleIconTap() }
                 }
             }
             .id(currentStep)
-            // SF Pro Text Regular, 18pt — matches system input fields
             .font(.system(size: 18, weight: .regular))
-            // Force light-mode rendering so typed text is dark and
-            // placeholder renders as medium gray regardless of app colour scheme.
-            .environment(\.colorScheme, .light)
-            .foregroundStyle(nearBlack)
-            .tint(.blue)   // cursor colour
+            .environment(\.colorScheme, .dark)
+            .foregroundStyle(Color.white)
+            .tint(.white)
             .transition(.asymmetric(
                 insertion: .opacity.combined(with: .move(edge: .trailing)),
                 removal:   .opacity.combined(with: .move(edge: .leading))
@@ -273,11 +258,15 @@ struct SignUpCardView: View {
         .padding(.vertical, 14)
         .background(Capsule().fill(pillFill))
         .animation(.easeInOut(duration: 0.25), value: currentStep)
+        .onAppear { focused = .email }
     }
 
     private var trailingIcon: String {
         if isSubmitting { return "arrow.2.circlepath" }
-        return inputText.isEmpty ? currentStep.identityIcon : currentStep.actionIcon
+        if inputText.isEmpty { return currentStep.identityIcon }
+        // Last step in current mode → submit icon
+        let isLastStep = isSignInMode ? currentStep == .password : currentStep == .repeatPassword
+        return isLastStep ? "paperplane.fill" : "arrow.up"
     }
 
     private var iconButton: some View {
@@ -301,11 +290,11 @@ struct SignUpCardView: View {
 
     private var successBanner: some View {
         ZStack {
-            Text("ACCOUNT CREATED")
+            Text(isSignInMode ? "SIGNED IN" : "ACCOUNT CREATED")
                 .font(.system(size: 15, weight: .black, design: .rounded))
                 .foregroundColor(Color(red: 0.10, green: 0.55, blue: 0.24))
                 .offset(x: 2, y: 2)
-            Text("ACCOUNT CREATED")
+            Text(isSignInMode ? "SIGNED IN" : "ACCOUNT CREATED")
                 .font(.system(size: 15, weight: .black, design: .rounded))
                 .foregroundColor(Color(red: 0.22, green: 0.82, blue: 0.52))
         }
@@ -323,7 +312,11 @@ struct SignUpCardView: View {
             advance()
         } else if currentStep == .password {
             storedPassword = inputText
-            advance()
+            if isSignInMode {
+                performSignIn()
+            } else {
+                advance()
+            }
         } else if currentStep == .repeatPassword {
             guard inputText == storedPassword else {
                 errorMessage = "Passwords don't match."
@@ -338,6 +331,41 @@ struct SignUpCardView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             currentStep = next
             inputText   = ""
+        }
+        // Schedule focus after SwiftUI rebuilds the new field via .id(currentStep)
+        Task { @MainActor in focused = next }
+    }
+
+    private func resetForm() {
+        currentStep   = .email
+        inputText     = ""
+        storedEmail   = ""
+        storedPassword = ""
+        errorMessage  = nil
+        showSuccess   = false
+    }
+
+    private func performSignIn() {
+        isSubmitting = true
+        Task {
+            do {
+                try await FirebaseAuthenticationService.shared.signIn(
+                    email: storedEmail, password: storedPassword
+                )
+                await MainActor.run {
+                    isSubmitting = false
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.65)) {
+                        showSuccess = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { onSuccess() }
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    errorMessage = (error as? LocalizedError)?.errorDescription
+                        ?? "Incorrect email or password."
+                }
+            }
         }
     }
 
@@ -358,33 +386,41 @@ struct SignUpCardView: View {
             } catch {
                 await MainActor.run {
                     isSubmitting = false
-                    errorMessage = error.localizedDescription
+                    errorMessage = (error as? LocalizedError)?.errorDescription
+                        ?? "Something went wrong."
                 }
             }
         }
     }
 
     private func signInWithApple() {
-        let coordinator = AppleSignInCoordinator { success in
-            appleCoordinator = nil
-            if success { onSuccess() }
+        isLoadingApple = true
+        Task {
+            do {
+                try await FirebaseAuthenticationService.shared.signInWithApple()
+                isLoadingApple = false
+                onSuccess()
+            } catch let err as ASAuthorizationError where err.code == .canceled {
+                isLoadingApple = false
+            } catch {
+                isLoadingApple = false
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? "Apple sign-in failed."
+            }
         }
-        appleCoordinator = coordinator
-        coordinator.startSignIn()
     }
 
     private func signInWithGoogle() {
         isLoadingGoogle = true
         Task {
             do {
-                try await GoogleSignInService.shared.signIn()
+                try await FirebaseAuthenticationService.shared.signInWithGoogle()
                 isLoadingGoogle = false
                 onSuccess()
             } catch let err as ASWebAuthenticationSessionError where err.code == .canceledLogin {
                 isLoadingGoogle = false
             } catch {
                 isLoadingGoogle = false
-                errorMessage = error.localizedDescription
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? "Google sign-in failed."
             }
         }
     }

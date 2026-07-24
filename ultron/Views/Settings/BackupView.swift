@@ -9,9 +9,9 @@ struct BackupView: View {
     @State private var showSuccessAlert = false
     @State private var alertMsg      = ""
 
+    // Scoped to the current user's UID so each account's backup is isolated.
     private var backupURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("compass_backup.json")
+        UserContext.shared.fileURL("compass_backup.json")
     }
 
     var body: some View {
@@ -139,7 +139,7 @@ struct BackupView: View {
             guard let entries = try? decoder.decode([JournalEntry].self, from: data) else {
                 alertMsg = "Could not read backup file."; showSuccessAlert = true; isRestoring = false; return
             }
-            journalVM.entries = entries
+            await journalVM.restoreEntries(entries)
             alertMsg = "Restored \(entries.count) entries successfully."
             isRestoring = false
             showSuccessAlert = true

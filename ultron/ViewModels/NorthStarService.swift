@@ -1,12 +1,14 @@
 import Foundation
 
 /// Persists and retrieves the user's single long-term North Star goal.
+/// All storage is scoped to the current user's UID via UserContext.
 final class NorthStarService {
     static let shared = NorthStarService()
     private init() {}
 
-    private let goalKey = "compass_north_star_goal_v1"
-    private let seenKey = "compass_north_star_seen_v1"
+    // Keys are computed so they automatically reflect the active uid.
+    private var goalKey: String { UserContext.shared.key("compass_north_star_goal_v1") }
+    private var seenKey: String { UserContext.shared.key("compass_north_star_seen_v1") }
 
     var goal: String? {
         get { UserDefaults.standard.string(forKey: goalKey) }

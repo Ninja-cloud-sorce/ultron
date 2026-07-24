@@ -63,15 +63,20 @@ struct CalendarView: View {
                     }
                     .padding(.horizontal, AppTheme.Spacing.m)
 
-                    // Grid
+                    // Grid — entry lookup built once per render (O(n)) rather than
+                    // calling entries(for:) twice per cell which was O(84n) for a 31-day month.
+                    let entryByDay: [Date: JournalEntry] = Dictionary(
+                        journalVM.entries.map { ($0.entryDate, $0) },
+                        uniquingKeysWith: { first, _ in first }
+                    )
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: AppTheme.Spacing.s) {
                         ForEach(calendarDays, id: \.self) { date in
                             CalendarDayCell(
                                 date: date,
                                 isSelected: date != nil && calendar.isDate(date!, inSameDayAs: selectedDate),
                                 isToday: date != nil && calendar.isDateInToday(date!),
-                                hasEntry: date != nil && !journalVM.entries(for: date!).isEmpty,
-                                moodColor: date != nil ? journalVM.entries(for: date!).first?.mood.color : nil
+                                hasEntry: date != nil && entryByDay[date!] != nil,
+                                moodColor: date != nil ? entryByDay[date!]?.mood.color : nil
                             ) {
                                 if let d = date { selectedDate = d }
                             }
