@@ -117,35 +117,53 @@ struct HomeScreenView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, AppTheme.Spacing.m)
 
-                        VStack(spacing: AppTheme.Spacing.s) {
-                            ForEach(journalVM.entries.prefix(3)) { entry in
-                                RecentEntryRow(entry: entry)
-                                    .background {
-                                        ZStack {
-                                            Image("entry bg")
-                                                .resizable()
-                                                .scaledToFill()
-                                            LinearGradient(
-                                                colors: [
-                                                    AppTheme.Colors.bgPrimary.opacity(0.78),
-                                                    AppTheme.Colors.bgPrimary.opacity(0.1),
-                                                    .clear
-                                                ],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                            LinearGradient(
-                                                colors: [.black.opacity(0.25), .clear, .clear, .black.opacity(0.15)],
-                                                startPoint: .top,
-                                                endPoint: .bottom
-                                            )
-                                        }
-                                    }
-                                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                                    .shadow(color: .black.opacity(0.38), radius: 16, y: 8)
+                        if journalVM.entries.isEmpty {
+                            VStack(spacing: 14) {
+                                Image(systemName: "book.closed.fill")
+                                    .font(.system(size: 34))
+                                    .foregroundColor(AppTheme.Colors.textTertiary.opacity(0.45))
+                                Text("No entries yet")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(AppTheme.Colors.textSecondary)
+                                Text("Tap the card above to write your first reflection.")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.Colors.textTertiary)
+                                    .multilineTextAlignment(.center)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .padding(.horizontal, AppTheme.Spacing.m)
+                        } else {
+                            VStack(spacing: AppTheme.Spacing.s) {
+                                ForEach(journalVM.entries.prefix(3)) { entry in
+                                    RecentEntryRow(entry: entry)
+                                        .background {
+                                            ZStack {
+                                                Image("entry bg")
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                LinearGradient(
+                                                    colors: [
+                                                        AppTheme.Colors.bgPrimary.opacity(0.78),
+                                                        AppTheme.Colors.bgPrimary.opacity(0.1),
+                                                        .clear
+                                                    ],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                                LinearGradient(
+                                                    colors: [.black.opacity(0.25), .clear, .clear, .black.opacity(0.15)],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                            }
+                                        }
+                                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                        .shadow(color: .black.opacity(0.38), radius: 16, y: 8)
+                                }
+                            }
+                            .padding(.horizontal, AppTheme.Spacing.m)
                         }
-                        .padding(.horizontal, AppTheme.Spacing.m)
                     }
 
                     Spacer(minLength: 100)

@@ -4,10 +4,12 @@ struct PrivacyView: View {
     @StateObject private var settings = SettingsManager.shared
     @EnvironmentObject var journalVM: JournalViewModel
     @EnvironmentObject var appVM:     AppViewModel
-    @State private var showDeleteDataAlert   = false
+    @State private var showDeleteDataAlert    = false
     @State private var showDeleteAccountAlert = false
     @State private var showExportShare        = false
     @State private var exportURL: URL?        = nil
+    @State private var showStatusAlert        = false
+    @State private var alertMsg               = ""
 
     var body: some View {
         ZStack {
@@ -16,8 +18,11 @@ struct PrivacyView: View {
                 VStack(spacing: 24) {
                     SettingsSection(title: "Data") {
                         Button {
-                            exportURL = prepareExport()
-                            if exportURL != nil { showExportShare = true }
+                            Task {
+                                let url = await prepareExportAsync()
+                                exportURL = url
+                                if url != nil { showExportShare = true }
+                            }
                         } label: {
                             SettingsNavRow(icon: "square.and.arrow.up.fill", iconColor: AppTheme.Colors.accentTeal, title: "Export Journal Data")
                         }
@@ -77,16 +82,24 @@ struct PrivacyView: View {
                 ShareSheet(url: url)
             }
         }
+        .alert("Notice", isPresented: $showStatusAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMsg)
+        }
     }
 
-    private func prepareExport() -> URL? {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = .prettyPrinted
-        guard let data = try? encoder.encode(journalVM.entries) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("compass_journal_export.json")
-        try? data.write(to: url)
-        return url
+    private func prepareExportAsync() async -> URL? {
+        let entries = journalVM.entries
+        return await Task.detached(priority: .utility) {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = .prettyPrinted
+            guard let data = try? encoder.encode(entries) else { return nil }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("compass_journal_export.json")
+            try? data.write(to: url)
+            return url
+        }.value
     }
 
     private func deleteLocalData() {
@@ -97,8 +110,13 @@ struct PrivacyView: View {
 
     private func deleteAccount() {
         Task {
-            try? await FirebaseAuthenticationService.shared.deleteAccount()
-            deleteLocalData()
+            do {
+                try await FirebaseAuthenticationService.shared.deleteAccount()
+                deleteLocalData()
+            } catch {
+                alertMsg = "Account deletion failed. Please sign out, sign back in, and try again."
+                showStatusAlert = true
+            }
         }
     }
 

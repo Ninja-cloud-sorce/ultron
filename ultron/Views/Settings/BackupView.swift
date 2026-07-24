@@ -113,16 +113,20 @@ struct BackupView: View {
 
     private func performBackup() {
         isBackingUp = true
+        let entries = journalVM.entries
+        let url = backupURL
         Task {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            if let data = try? encoder.encode(journalVM.entries) {
-                try? data.write(to: backupURL)
-                settings.lastBackupDate = Date()
-                alertMsg = "Backup saved successfully — \(journalVM.entries.count) entries."
-            } else {
-                alertMsg = "Backup failed. Please try again."
-            }
+            let (success, message) = await Task.detached(priority: .utility) {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                if let data = try? encoder.encode(entries),
+                   (try? data.write(to: url)) != nil {
+                    return (true, "Backup saved successfully — \(entries.count) entries.")
+                }
+                return (false, "Backup failed. Please try again.")
+            }.value
+            if success { SettingsManager.shared.lastBackupDate = Date() }
+            alertMsg = message
             isBackingUp = false
             showSuccessAlert = true
         }
@@ -130,17 +134,25 @@ struct BackupView: View {
 
     private func performRestore() {
         isRestoring = true
+        let url = backupURL
         Task {
-            guard let data = try? Data(contentsOf: backupURL) else {
-                alertMsg = "No backup file found."; showSuccessAlert = true; isRestoring = false; return
+            let (restored, errorMessage): ([JournalEntry]?, String?) = await Task.detached(priority: .utility) {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                guard let data = try? Data(contentsOf: url) else {
+                    return (nil, "No backup file found.")
+                }
+                guard let decoded = try? decoder.decode([JournalEntry].self, from: data) else {
+                    return (nil, "Could not read backup file.")
+                }
+                return (decoded, nil)
+            }.value
+            if let entries = restored {
+                journalVM.restoreEntries(entries)
+                alertMsg = "Restored \(entries.count) entries successfully."
+            } else {
+                alertMsg = errorMessage ?? "Restore failed."
             }
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            guard let entries = try? decoder.decode([JournalEntry].self, from: data) else {
-                alertMsg = "Could not read backup file."; showSuccessAlert = true; isRestoring = false; return
-            }
-            await journalVM.restoreEntries(entries)
-            alertMsg = "Restored \(entries.count) entries successfully."
             isRestoring = false
             showSuccessAlert = true
         }
