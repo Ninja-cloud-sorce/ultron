@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/demo.gif" width="120" alt="Compass Icon" />
+<img src="assets/icon.jpeg" width="120" alt="Compass App Icon" style="border-radius: 22px;" />
 
 # Compass
 
@@ -18,10 +18,6 @@
 
 > Most journaling apps give you a blank page. **Compass gives you a direction.**
 
-<p align="center">
-  <img src="assets/demo.gif" width="480" alt="Compass App Demo" />
-</p>
-
 </div>
 
 ---
@@ -31,16 +27,6 @@
 Compass is a production iOS journaling app that fuses **handwriting capture**, **on-device OCR**, and **Gemini AI** to give every journal entry a measurable outcome against your long-term goal — your *North Star*.
 
 Write a typed entry or scan a handwritten page. Compass extracts your words via Apple Vision, cleans them with Gemini, and re-types them word-by-word onto a notebook page in real time. Every entry is then analyzed: are you moving *toward* your North Star, staying *neutral*, or drifting *away*? Compass scores it, explains why, and coaches you back on track.
-
----
-
-## Demo
-
-<p align="center">
-  <img src="assets/demo.gif" width="480" alt="Compass App Demo" />
-</p>
-
-> *Full walkthrough video coming soon.*
 
 ---
 
