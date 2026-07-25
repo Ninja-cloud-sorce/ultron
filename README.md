@@ -1,6 +1,6 @@
 # Compass
 
-An AI-powered journaling app for iOS. Write, reflect, and stay aligned with who you want to become.
+An  journaling app for iOS. Write, reflect, and stay aligned with who you want to become.
 
 ---
 
