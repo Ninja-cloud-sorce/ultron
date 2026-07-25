@@ -276,9 +276,6 @@ Select a simulator (iPhone 15 or later recommended) and press `⌘R`.
 
 ## Engineering Decisions
 
-### Why Supabase over Firestore?
-Supabase provides a relational PostgreSQL schema, which makes cross-entry queries (e.g., mood trends, alignment history over time ranges) significantly cleaner than Firestore's document model. It also offers row-level security without Cloud Functions.
-
 ### Why Gemini 2.0 Flash for OCR cleanup?
 Flash's low latency (~600ms) makes it viable for an interactive capture flow. The prompt is structured to preserve the user's original voice and sentence structure while correcting only OCR artifacts — a nuance that smaller models miss.
 
