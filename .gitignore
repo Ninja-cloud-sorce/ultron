@@ -38,3 +38,11 @@ Config.plist
 
 # Thumbnails
 ._*
+
+# Stray root-level duplicate directories (not part of Xcode target)
+Features/
+Services/
+
+# Xcode shared data
+ultron.xcodeproj/xcshareddata/
+ultron.xcodeproj/project.xcworkspace/xcshareddata/
