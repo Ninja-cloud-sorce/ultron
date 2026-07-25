@@ -97,7 +97,7 @@ Select a simulator or device and press `⌘R`.
 ## Demo
 
 <p align="center">
-  <img src="assets/demo.gif" width="320" alt="Compass Demo" />
+  <img src="assets/demo.gif" width="480" alt="Compass Demo" />
 </p>
 
 ---
