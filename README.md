@@ -96,10 +96,7 @@ Select a simulator or device and press `⌘R`.
 
 ## Demo
 
-https://github.com/user-attachments/assets/your-demo-video-id
-
-<!-- Replace the line above with your actual GitHub video asset URL -->
-<!-- To upload: drag your .mov into any GitHub issue text box, copy the URL, paste here -->
+https://github.com/Ninja-cloud-sorce/ultron/releases/download/v1.0/promo.video.mov
 
 ---
 
