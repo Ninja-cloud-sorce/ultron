@@ -30,6 +30,16 @@ Write a typed entry or scan a handwritten page. Compass extracts your words via 
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="assets/demo.gif" width="480" alt="Compass App Demo" />
+</p>
+
+> *Full walkthrough video coming soon.*
+
+---
+
 ## Features
 
 | Feature | Description |
