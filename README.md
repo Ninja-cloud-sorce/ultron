@@ -96,7 +96,7 @@ Select a simulator or device and press `⌘R`.
 
 ## Demo
 
-<video src="https://github.com/Ninja-cloud-sorce/ultron/releases/download/v1.0/compass_demo.mp4" autoplay loop muted playsinline></video>
+![Compass Demo](assets/demo.gif)
 
 ---
 
