@@ -76,17 +76,11 @@ Select a simulator or device and press `⌘R`.
 
 **AI Reflection** — Gemini 2.0 Flash analyzes each entry against your North Star and returns a direction (Toward / Neutral / Away), an alignment score, coaching advice, and themes.
 
-**Observatory** — Mood trend charts and AI-surfaced insights across any time window.
-
 **Library** — Browse your entries by Timeline, On This Day, or Favorites. Full-text search.
 
 **Compass Monument** — Tap the lighthouse to activate a beam animation. Gemini loads your latest guidance inline.
 
 **Campfire** — Writing streak tracker and weekly mood chart.
-
-**Reflection Garden** — Gratitude counter with a spring bloom animation.
-
-**Museum** — Your curated Lessons, Quotes, and Memories.
 
 **Themes** — Dark · Soft Cream · Midnight · OLED Black · System.
 
